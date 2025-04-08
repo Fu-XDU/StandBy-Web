@@ -43,13 +43,13 @@ function setColors(color1: string, color2: string, colonColor: string) {
 
 .font {
   font-family: 'SF-Pro-Rounded-Black', serif;
-  font-size: 50vh;
+  font-size: 37vw;
   display: flex;
   justify-content: center;
   align-items: center;
-  max-width: 100vh;
-  letter-spacing: -7vh;
-  padding-right: 7vh;
+  max-width: 100vw;
+  letter-spacing: -5vw;
+  padding-right: 5vw;
 }
 
 .digit-0 {
@@ -61,7 +61,7 @@ function setColors(color1: string, color2: string, colonColor: string) {
 
 .digit-1 {
   color: var(--color-2);
-  font-size: 55vh;
+  font-size: 41vw;
   transform: rotate(1deg);
   z-index: 2;
 }
@@ -69,7 +69,7 @@ function setColors(color1: string, color2: string, colonColor: string) {
 .colon {
   color: var(--color-colon);
   z-index: 2;
-  transform: translateY(-20px) scale(1.1);
+  transform: translateY(-3vh) scale(1.1);
   opacity: 0.98;
 }
 

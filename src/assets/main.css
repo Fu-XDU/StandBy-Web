@@ -2,3 +2,8 @@
     font-family: 'SF-Pro-Rounded-Black';
     src: url('/src/assets/fonts/SF-Pro-Rounded-Black.otf')
 }
+
+@font-face {
+    font-family: 'AFCamberwell-One-Regular';
+    src: url('/src/assets/fonts/AFCamberwell-One-Regular.otf')
+}
