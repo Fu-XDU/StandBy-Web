@@ -1,0 +1,61 @@
+version: 2.1
+workflows:
+  build:
+    jobs:
+      - build
+jobs:
+  build:
+    machine: true
+    resource_class: mac-mini/server-1
+    shell: /bin/zsh  # 使用 zsh
+    steps:
+      - run:
+          name: "Setup Node environment"
+          command: |
+            echo "Current shell: $SHELL"
+            cat ~/.zshrc >> "$BASH_ENV"
+            source "$BASH_ENV"
+            echo "Node version: $(node -v)"
+            echo "npm version: $(npm -v)"
+      - run:
+          name: "Check out"
+          command: | 
+            git clone --depth 1 git@github.com:Fu-XDU/StandBy-Web.git .
+          environment:
+            https_proxy: http://127.0.0.1:7890
+            http_proxy: http://127.0.0.1:7890
+            all_proxy: socks5://127.0.0.1:7890
+      # 恢复本地缓存（如果有）
+      - run:
+          name: "Use Local Cache for npm modules"
+          command: |
+            if [ -d "$HOME/CircleCI/caches/stand-by-web/node_modules" ]; then
+              echo "Using cached node_modules..."
+              cp -r $HOME/CircleCI/caches/stand-by-web/node_modules ./
+            else
+              echo "Cache not found."
+            fi
+      # 安装依赖
+      - run:
+          name: "Install Dependencies"
+          command: | 
+            source "$BASH_ENV"
+            npm install
+            npm rebuild
+      # 保存本地缓存
+      - run:
+          name: "Save Local Cache for npm modules"
+          command: |
+            rm -rf $HOME/CircleCI/caches/stand-by-web/node_modules
+            mkdir -p $HOME/CircleCI/caches/stand-by-web
+            cp -r node_modules $HOME/CircleCI/caches/stand-by-web/
+      - run:
+          name: "Build Dist"
+          command: |
+            source "$BASH_ENV"
+            npm run build
+      - run:
+          name: "Deploy"
+          command: |
+            rm -rf /opt/homebrew/var/www/stand-by-web
+            mv dist /opt/homebrew/var/www/stand-by-web
