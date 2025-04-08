@@ -3,8 +3,10 @@ import Float from './components/Float.vue'
 </script>
 
 <template>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <main id="app">
-   <Float></Float>
+   <Float/>
   </main>
 </template>
 
@@ -13,12 +15,12 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  background: #000;
 }
 
 #app {
   width: 100vw;
   height: 100vh;
-  background: #000;
   color: white;
   display: flex;
   align-items: center;
