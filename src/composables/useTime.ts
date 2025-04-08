@@ -12,10 +12,10 @@ export function useTime() {
     }
 
     let timer: number
+    let recalibrationTimer: number
 
-    onMounted(() => {
+    const startAlignedTimer = () => {
         updateDigits()
-        // 计算距离下一个整分钟的时间
         const now = new Date()
         const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
 
@@ -23,10 +23,25 @@ export function useTime() {
             updateDigits()
             timer = window.setInterval(updateDigits, 60 * 1000)
         }, msUntilNextMinute)
+    }
+
+    const recalibrate = () => {
+        if (timer) clearInterval(timer)
+        startAlignedTimer()
+    }
+
+    onMounted(() => {
+        startAlignedTimer()
+
+        // 每 60 分钟重新校准一次定时器
+        recalibrationTimer = window.setInterval(() => {
+            recalibrate()
+        }, 60 * 60 * 1000)
     })
 
     onUnmounted(() => {
-        clearInterval(timer)
+        if (timer) clearInterval(timer)
+        if (recalibrationTimer) clearInterval(recalibrationTimer)
     })
 
     return { digits }
