@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import Float from './components/Float.vue'
 </script>
 
 <template>
   <main id="app">
+   <Float></Float>
   </main>
 </template>
 
