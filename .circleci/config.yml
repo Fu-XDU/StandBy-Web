@@ -57,5 +57,5 @@ jobs:
       - run:
           name: "Deploy"
           command: |
-            rm -rf /opt/homebrew/var/www/stand-by-web
-            mv dist /opt/homebrew/var/www/stand-by-web
+            rm -rf /opt/homebrew/var/www/standby
+            mv dist /opt/homebrew/var/www/standby
