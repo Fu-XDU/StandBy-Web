@@ -1,6 +1,8 @@
+/* OTF/WOFF/WOFF2 Converter: https://github.com/bashi/kombu */
+
 @font-face {
     font-family: 'SF-Pro-Rounded-Black';
-    src: url('/src/assets/fonts/SF-Pro-Rounded-Black.otf')
+    src: url('/src/assets/fonts/SF-Pro-Rounded-Black.woff2')
 }
 
 @font-face {
