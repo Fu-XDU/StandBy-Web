@@ -22,7 +22,7 @@ import {useTime} from '@/composables/useTime'
 const {digits} = useTime()
 
 const colors = {
-  'blue': ['#0083F8', '#50A2EC', '#C4CFDA'],
+  'blue': ['rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
 }
 
 // 动态设置颜色 CSS 变量
@@ -36,9 +36,9 @@ function setColors(color1: string, color2: string, colonColor: string) {
 
 <style>
 :root {
-  --color-1: #0083F8;
-  --color-2: #50A2EC;
-  --color-colon: #C4CFDA;
+  --color-1: rgba(0, 105, 200, 0.93);
+  --color-2: rgba(88, 174, 256, 0.93);
+  --color-colon: rgba(196, 207, 218, 0.98);
 }
 
 .font {
@@ -55,34 +55,34 @@ function setColors(color1: string, color2: string, colonColor: string) {
 .digit-0 {
   color: var(--color-1);
   transform: rotate(-5deg) scaleY(1.1);
-  z-index: 3;
-  opacity: 0.75;
+  z-index: 0;
 }
 
 .digit-1 {
   color: var(--color-2);
   font-size: 41vw;
   transform: rotate(1deg);
-  z-index: 2;
+  z-index: 1;
+  mix-blend-mode: screen;
 }
 
 .colon {
   color: var(--color-colon);
   z-index: 2;
   transform: translateY(-3vh) scale(1.1);
-  opacity: 0.98;
+  /*backdrop-filter: blur(10px);*/
 }
 
 .digit-2 {
   color: var(--color-1);
   transform: rotate(5deg) scaleY(1.1);
-  z-index: 1;
-  opacity: 0.75;
+  z-index: 0;
 }
 
 .digit-3 {
   color: var(--color-2);
   transform: rotate(-2deg) scaleY(1.1);
-  z-index: 0;
+  z-index: 1;
+  mix-blend-mode: screen;
 }
 </style>
