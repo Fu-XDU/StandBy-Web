@@ -41,5 +41,10 @@ npm run build
         root   /opt/homebrew/var/www/;
         index  index.html index.htm;
         try_files  $uri $uri/ /standby/index.html;
+        
+        location ~* \.(otf|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+        }
     }
 ```
