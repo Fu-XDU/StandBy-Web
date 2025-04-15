@@ -15,8 +15,8 @@
     </span>
   </time>
 
-  <div style="display: flex;flex-direction: row;margin-top: 20vh;margin-bottom: 15vh;">
-    <button class="toggle-button" @click="toggle">
+  <div style="display: flex;flex-direction: row;margin-top: 20vh;align-items: center;">
+    <button class="toggle-button" @click="toggleExpanded">
       <span class="inner-dot"/>
     </button>
     <div class="color-bar" :class="{ expanded: isExpanded }">
@@ -25,60 +25,161 @@
           :key="color[0] + color[1]"
           class="color-dot-wrapper"
           :class="{ selected: isExpanded && selectedColorIndex === index }"
-          @click="setColors(color, index)"
+          @click="setColors(index)"
       >
         <div class="color-dot"
              :style="{ backgroundImage: `linear-gradient(to right, ${color[0]} 50%, ${color[1]} 50%)` }"/>
       </div>
     </div>
   </div>
+  <div style="display: flex;flex-direction: row;align-items: center;padding-top: 1vh">
+    <div style="padding-right: 0.4vw;">自动夜间模式</div>
+    <el-tooltip
+        class="box-item"
+        effect="dark"
+        content="将会在00:00-06:00生效"
+        placement="top-start"
+    >
+      <el-switch
+          v-model="autoNightMode"
+          class="ml-2"
+          style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
+          @change="onAutoNightModeChange"
+      />
+    </el-tooltip>
+  </div>
+  <div style="padding-bottom: 10vh"></div>
 </template>
 
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
-import {ref} from 'vue'
+import {ref, onMounted, onBeforeUnmount} from 'vue'
 
 const {digits} = useTime()
 
 const colors = [
-  ['rgba(82, 162, 237, 1)', 'rgba(82, 162, 237, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(172, 143, 255, 1)', 'rgba(172, 143, 255, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(255, 112, 147, 1)', 'rgba(255, 112, 147, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(224, 105, 182, 1)', 'rgba(224, 105, 182, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(253, 218, 77, 1)', 'rgba(253, 218, 77, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(255, 113, 125, 1)', 'rgba(255, 113, 125, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(114, 222, 138, 1)', 'rgba(114, 222, 138, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(53, 208, 217, 1)', 'rgba(53, 208, 217, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-
-  ['rgba(82, 162, 237, 1)', 'rgba(114, 222, 138, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(0, 98, 186, 1)', 'rgba(255, 161, 89, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(113, 74, 232, 1)', 'rgba(224, 105, 182, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(255, 133, 125, 1)', 'rgba(253, 218, 77, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
-  ['rgba(255, 132, 147, 1)', 'rgba(53, 208, 217, 1)', 'rgba(0, 105, 200, 0.93)', 'rgba(88, 174, 256, 0.93)', 'rgba(196, 207, 218, 0.98)'],
+  ['rgb(76,151,219)', 'rgba(76,151,219)', 'rgb(6,93,166)', 'rgb(57,151,220)', 'rgb(6,93,166)', 'rgb(57,151,220)'],
+  ['rgb(159,133,235)', 'rgba(159,133,235)', 'rgb(109,72,223)', 'rgb(165,138,245)', 'rgb(109,72,223)', 'rgb(165,138,245)'],
+  ['rgb(245,109,142)', 'rgba(245,109,142)', 'rgb(210,60,104)', 'rgb(245,109,142)', 'rgb(210,60,104)', 'rgb(245,109,142)'],
+  ['rgb(215,103,175)', 'rgb(215,103,175)', 'rgb(154,51,162)', 'rgb(215,103,175)', 'rgb(154,51,162)', 'rgb(215,103,175)'],
+  ['rgb(243,209,76)', 'rgba(243,209,76)', 'rgb(172,148,44)', 'rgb(243,209,76)', 'rgb(172,148,44)', 'rgb(243,209,76)'],
+  ['rgb(244,128,121)', 'rgba(244,128,121)', 'rgb(244,89,72)', 'rgb(244,128,121)', 'rgb(244,89,72)', 'rgb(244,128,121)'],
+  ['rgb(245,155,86)', 'rgb(245,155,86)', 'rgb(225,107,26)', 'rgb(245,155,86)', 'rgb(225,107,26)', 'rgb(245,155,86)'],
+  ['rgb(110,213,134)', 'rgba(110,213,134)', 'rgb(45,130,95)', 'rgb(110,213,134)', 'rgb(45,130,95)', 'rgb(110,213,134)'],
+  ['rgb(54,200,209)', 'rgb(54,200,209)', 'rgb(4,126,135)', 'rgb(54,200,209)', 'rgb(4,126,135)', 'rgb(54,200,209)'],
+  ['rgb(80,156,228)', 'rgb(110,213,134)', 'rgb(5,94,179)', 'rgb(110,213,134)', 'rgb(80,156,228)', 'rgb(45,130,95)'],
+  ['rgb(5,94,179)', 'rgb(245,155,86)', 'rgb(80,156,228)', 'rgb(245,155,86)', 'rgb(5,94,179)', 'rgb(225,107,26)'],
+  ['rgb(109,72,223)', 'rgb(215,103,175)', 'rgb(165,138,245)', 'rgb(215,103,175)', 'rgb(109,72,223)', 'rgb(154,51,162)'],
+  ['rgb(244,128,121)', 'rgb(243,209,76)', 'rgb(244,89,72)', 'rgb(243,209,76)', 'rgb(244,128,121)', 'rgb(172,148,44)'],
+  ['rgb(245,109,142)', 'rgb(54,200,209)', 'rgb(210,60,104)', 'rgb(54,200,209)', 'rgb(245,109,142)', 'rgb(4,126,135)'],
 ]
 
+// [Digit, Colon]
+const nightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
+
 const isExpanded = ref(false)
-const toggle = () => {
+const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
 }
 
-const selectedColorIndex = ref(0)
+const isNightMode = ref(false)
+let nightModeTimer: number | undefined
 
-const setColors = (color: Array<string>, index: number) => {
+const autoNightMode = ref(false)
+const autoNightMode_STORAGE_KEY = 'autoNightMode'
+
+const selectedColorIndex = ref(0)
+const selectedColorIndex_STORAGE_KEY = 'selectedColorIndex'
+
+const setColors = (index: number) => {
   selectedColorIndex.value = index
+  localStorage.setItem(selectedColorIndex_STORAGE_KEY, selectedColorIndex.value.toString())
+  if (isNightMode.value) {
+    return
+  }
 
   const root = document.documentElement
-  root.style.setProperty('--color-1', color[2])
-  root.style.setProperty('--color-2', color[3])
-  root.style.setProperty('--color-colon', color[4])
+  root.style.setProperty('--color-0', colors[index][2])
+  root.style.setProperty('--color-1', colors[index][3])
+  root.style.setProperty('--color-2', colors[index][4])
+  root.style.setProperty('--color-3', colors[index][5])
+  root.style.setProperty('--color-colon', 'rgba(196, 207, 218)')
 }
+
+const setAutoNightModeOn = () => {
+  checkTimeAndSetMode()
+  if (!nightModeTimer) {
+    nightModeTimer = setInterval(checkTimeAndSetMode, 1000)
+  }
+}
+
+const setAutoNightModeOff = () => {
+  if (nightModeTimer) {
+    clearInterval(nightModeTimer)
+  }
+  setToLightMode()
+}
+
+const onAutoNightModeChange = (autoNightMode: boolean) => {
+  if (autoNightMode) {
+    setAutoNightModeOn()
+    localStorage.setItem(autoNightMode_STORAGE_KEY, 'true')
+  } else {
+    setAutoNightModeOff()
+    localStorage.removeItem(autoNightMode_STORAGE_KEY)
+  }
+}
+
+const setToLightMode = () => {
+  isNightMode.value = false
+  const savedIndex = localStorage.getItem(selectedColorIndex_STORAGE_KEY)
+  if (savedIndex !== null) {
+    selectedColorIndex.value = parseInt(savedIndex)
+  }
+  setColors(selectedColorIndex.value)
+}
+
+const setToNightMode = () => {
+  isNightMode.value = true
+
+  const root = document.documentElement
+  root.style.setProperty('--color-0', nightModeColors[0])
+  root.style.setProperty('--color-1', nightModeColors[0])
+  root.style.setProperty('--color-2', nightModeColors[0])
+  root.style.setProperty('--color-3', nightModeColors[0])
+
+  root.style.setProperty('--color-colon', nightModeColors[1])
+}
+
+const checkTimeAndSetMode = () => {
+  const hour = new Date().getHours()
+  if (hour >= 0 && hour < 6) {
+    if (!isNightMode.value) setToNightMode()
+  } else {
+    if (isNightMode.value) setToLightMode()
+  }
+}
+
+onMounted(() => {
+  autoNightMode.value = localStorage.getItem(autoNightMode_STORAGE_KEY) !== null
+  onAutoNightModeChange(autoNightMode.value)
+})
+
+onBeforeUnmount(() => {
+  if (nightModeTimer) {
+    clearInterval(nightModeTimer)
+  }
+})
+
 </script>
 
 <style>
 :root {
-  --color-1: rgba(0, 105, 200, 0.93);
-  --color-2: rgba(88, 174, 256, 0.93);
-  --color-colon: rgba(196, 207, 218, 0.98);
+  --color-0: rgb(6, 93, 166);
+  --color-1: rgb(57, 151, 220);
+  --color-2: rgb(6, 93, 166);
+  --color-3: rgb(57, 151, 220);
+  --color-colon: rgba(196, 207, 218);
 }
 
 .font {
@@ -93,13 +194,13 @@ const setColors = (color: Array<string>, index: number) => {
 }
 
 .digit-0 {
-  color: var(--color-1);
+  color: var(--color-0);
   transform: rotate(-5deg) scaleY(1.1);
   z-index: 0;
 }
 
 .digit-1 {
-  color: var(--color-2);
+  color: var(--color-1);
   font-size: 41vw;
   transform: rotate(1deg);
   z-index: 1;
@@ -110,17 +211,18 @@ const setColors = (color: Array<string>, index: number) => {
   color: var(--color-colon);
   z-index: 2;
   transform: translateY(-3vh) scale(1.1) rotate(2deg);
+  opacity: 0.98;
   /*backdrop-filter: blur(10px);*/
 }
 
 .digit-2 {
-  color: var(--color-1);
+  color: var(--color-2);
   transform: rotate(5deg) scaleY(1.1);
   z-index: 0;
 }
 
 .digit-3 {
-  color: var(--color-2);
+  color: var(--color-3);
   transform: rotate(-2deg) scaleY(1.1);
   z-index: 1;
   mix-blend-mode: screen;
@@ -131,7 +233,7 @@ const setColors = (color: Array<string>, index: number) => {
   width: 5vw;
   height: 5vw;
   border-radius: 50%;
-  background: rgba(90, 90, 90, 1);
+  background: rgba(90, 90, 90);
   border: none;
   cursor: pointer;
   display: flex;
@@ -147,22 +249,29 @@ const setColors = (color: Array<string>, index: number) => {
   width: 2.7vw;
   height: 2.7vw;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255);
 }
 
 .color-bar {
   display: flex;
-  overflow: hidden;
+  overflow-x: auto;
   width: 0;
   transition: width 0.2s ease;
   margin-left: 15px;
   flex-direction: row;
   align-items: center;
-  padding-left: 5px;
+  -webkit-overflow-scrolling: touch; /* iOS 惯性滚动 */
+  scrollbar-width: none; /* Firefox 隐藏滚动条 */
+  padding-right: 0;
 }
 
 .color-bar.expanded {
-  width: 70vw; /* 展开后的宽度 */
+  width: 75vw; /* 展开后的宽度 */
+  padding-right: 1vw;
+}
+
+.color-bar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari 隐藏滚动条 */
 }
 
 .color-dot-wrapper {
@@ -176,7 +285,7 @@ const setColors = (color: Array<string>, index: number) => {
 }
 
 .color-dot-wrapper.selected {
-  box-shadow: 0 0 0 3px rgba(11, 132, 235, 1); /* 蓝色外环 */
+  box-shadow: 0 0 0 3px rgba(11, 132, 235); /* 蓝色外环 */
 }
 
 .color-dot-wrapper:not(.selected) .color-dot:hover {

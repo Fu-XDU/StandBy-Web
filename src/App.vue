@@ -31,7 +31,7 @@ html, body {
 }
 
 .clock {
-  margin-top: 50vh;
+  padding-top: 150vh;
   animation: antiBurnMove 60s infinite linear,
   antiBurnOpacity 80s infinite ease-in-out,
   antiBurnTransform 120s infinite ease-in-out;
