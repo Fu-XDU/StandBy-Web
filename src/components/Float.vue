@@ -195,14 +195,14 @@ onBeforeUnmount(() => {
 
 .digit-0 {
   color: var(--color-0);
-  transform: rotate(-5deg) scaleY(1.1);
+  transform: rotate(-5deg) scaleY(1.2);
   z-index: 0;
 }
 
 .digit-1 {
   color: var(--color-1);
   font-size: 41vw;
-  transform: rotate(1deg);
+  transform: rotate(1deg) scaleY(1.1);
   z-index: 1;
   mix-blend-mode: screen;
 }
@@ -210,20 +210,20 @@ onBeforeUnmount(() => {
 .colon {
   color: var(--color-colon);
   z-index: 2;
-  transform: translateY(-3vh) scale(1.1) rotate(2deg);
+  transform: translateY(-3vw) scale(1.1) rotate(2deg);
   opacity: 0.98;
   /*backdrop-filter: blur(10px);*/
 }
 
 .digit-2 {
   color: var(--color-2);
-  transform: rotate(5deg) scaleY(1.1);
+  transform: rotate(5deg) scaleY(1.15);
   z-index: 0;
 }
 
 .digit-3 {
   color: var(--color-3);
-  transform: rotate(-2deg) scaleY(1.1);
+  transform: rotate(-2deg) scaleY(1.15);
   z-index: 1;
   mix-blend-mode: screen;
 }
