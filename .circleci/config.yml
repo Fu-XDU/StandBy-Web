@@ -12,6 +12,7 @@ jobs:
     machine: true
     resource_class: mac-mini/server-1
     shell: /bin/zsh  # 使用 zsh
+    working_directory: ~/CircleCI
     environment:
       https_proxy: http://127.0.0.1:7890
       http_proxy: http://127.0.0.1:7890
@@ -27,7 +28,6 @@ jobs:
           name: "Clone or Pull StandBy-Web repo"
           command: |
             mkdir -p ~/CircleCI
-            cd ~/CircleCI
             if [ -d "StandBy-Web" ] && [ ! -d "StandBy-Web/.git" ]; then
               echo "Error: Directory 'StandBy-Web' exists but is not a Git repository." >&2
               exit 1
@@ -46,11 +46,11 @@ jobs:
     machine: true
     resource_class: mac-mini/server-1
     shell: /bin/zsh  # 使用 zsh
+    working_directory: ~/CircleCI/StandBy-Web
     steps:
       - run:
           name: "Setup Node environment"
           command: |
-            cd ~/CircleCI/StandBy-Web
             echo "Current shell: $SHELL"
             cat ~/.zshrc >> "$BASH_ENV"
             source "$BASH_ENV"
@@ -60,17 +60,14 @@ jobs:
           name: "Install Dependencies"
           command: | 
             source "$BASH_ENV"
-            cd ~/CircleCI/StandBy-Web
             npm install
       - run:
           name: "Build Dist"
           command: |
             source "$BASH_ENV"
-            cd ~/CircleCI/StandBy-Web
             npm run build
       - run:
           name: "Deploy"
           command: |
-            cd ~/CircleCI/StandBy-Web
             rm -rf /opt/homebrew/var/www/standby
             mv dist /opt/homebrew/var/www/standby
