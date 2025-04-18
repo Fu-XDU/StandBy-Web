@@ -24,20 +24,20 @@ jobs:
             echo "Current shell: $SHELL"
             echo "git version: $(git -v)"
       - run:
-          name: "Clone or Pull stand-by-web repo"
+          name: "Clone or Pull StandBy-Web repo"
           command: |
             mkdir -p ~/CircleCI
             cd ~/CircleCI
-            if [ -d "stand-by-web" ] && [ ! -d "stand-by-web/.git" ]; then
-              echo "Error: Directory 'stand-by-web' exists but is not a Git repository." >&2
+            if [ -d "StandBy-Web" ] && [ ! -d "StandBy-Web/.git" ]; then
+              echo "Error: Directory 'StandBy-Web' exists but is not a Git repository." >&2
               exit 1
             fi
-            if [ ! -d "stand-by-web/.git" ]; then
+            if [ ! -d "StandBy-Web/.git" ]; then
               echo "Cloning repository..."
               git clone git@github.com:Fu-XDU/StandBy-Web.git
             else
               echo "Pulling latest changes..."
-              cd stand-by-web
+              cd StandBy-Web
               git reset --hard
               git clean -fd
               git pull origin main
@@ -50,7 +50,7 @@ jobs:
       - run:
           name: "Setup Node environment"
           command: |
-            cd ~/CircleCI/stand-by-web
+            cd ~/CircleCI/StandBy-Web
             echo "Current shell: $SHELL"
             cat ~/.zshrc >> "$BASH_ENV"
             source "$BASH_ENV"
