@@ -60,14 +60,17 @@ jobs:
           name: "Install Dependencies"
           command: | 
             source "$BASH_ENV"
+            cd ~/CircleCI/StandBy-Web
             npm install
       - run:
           name: "Build Dist"
           command: |
             source "$BASH_ENV"
+            cd ~/CircleCI/StandBy-Web
             npm run build
       - run:
           name: "Deploy"
           command: |
+            cd ~/CircleCI/StandBy-Web
             rm -rf /opt/homebrew/var/www/standby
             mv dist /opt/homebrew/var/www/standby
