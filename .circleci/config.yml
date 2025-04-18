@@ -2,7 +2,11 @@ version: 2.1
 workflows:
   build:
     jobs:
-      - build
+      - clone-or-pull-repo
+      - build:
+          requires:
+            - clone-or-pull-repo
+
 jobs:
   clone-or-pull-repo:
     machine: true
