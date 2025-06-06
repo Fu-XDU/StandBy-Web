@@ -1,4 +1,8 @@
 <template>
+  <div style="display: flex;justify-content: center;flex-direction: column;align-items: center;padding-bottom: 110vh">
+    <div>向下滑动</div>
+    <div>Swipe Down</div>
+  </div>
   <time v-if="digits.length > 0" class="font">
     <span :class="['digit', 'digit-0']">
       {{ digits[0] }}
