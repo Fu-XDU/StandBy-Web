@@ -3,7 +3,7 @@
     <div>向下滑动</div>
     <div>Swipe Down</div>
   </div>
-  <time v-if="digits.length > 0" class="font" :style="{ opacity: isShutDown ? 0 : 1 }">
+  <time v-if="digits.length > 0" class="font" :style="{ opacity: isInvisible ? 0 : 1 }">
     <span :class="['digit', 'digit-0']">
       {{ digits[0] }}
     </span>
@@ -37,7 +37,7 @@
     </div>
   </div>
   <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
-    <div style="padding-right: 0.4vw;">自动夜间模式</div>
+    <div style="padding-right: 0.4vw;">定时夜间模式</div>
     <el-switch
         v-model="autoNightMode"
         class="ml-2"
@@ -66,29 +66,29 @@
     </div>
   </div>
   <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
-    <div style="padding-right: 0.4vw;">自动关闭显示</div>
+    <div style="padding-right: 0.4vw;">定时关闭显示</div>
     <el-switch
-        v-model="autoShutDown"
+        v-model="autoInvisible"
         class="ml-2"
         style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
-        @change="onAutoShutDownChange"
+        @change="onAutoInvisibleChange"
     />
-    <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoShutDown">
+    <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoInvisible">
       <div style="padding-right: 0.5vw;">起止时间：</div>
       <el-time-picker
-          v-model="shutDownRange[0]"
+          v-model="invisibleRange[0]"
           size="default"
           placeholder="开始时间"
           style="width: 16vw;"
-          @change="onShutDownRangeChange"
+          @change="onInvisibleRangeChange"
       />
       <div style="padding: 0 5px">To</div>
       <el-time-picker
-          v-model="shutDownRange[1]"
+          v-model="invisibleRange[1]"
           size="default"
           placeholder="结束时间"
           style="width: 16vw;"
-          @change="onShutDownRangeChange"
+          @change="onInvisibleRangeChange"
       />
     </div>
   </div>
@@ -127,20 +127,20 @@ const toggleExpanded = () => {
 }
 
 const isNightMode = ref(false)
-const isShutDown = ref(false)
+const isInvisible = ref(false)
 
 let nightModeTimer: number | undefined
-let shutDownTimer: number | undefined
+let invisibleTimer: number | undefined
 
 const autoNightMode = ref(false)
 const autoNightMode_STORAGE_KEY = 'autoNightMode'
 const nightModeRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
 const nightModeRange_STORAGE_KEY = 'nightModeRange'
 
-const autoShutDown = ref(false)
-const autoShutDown_STORAGE_KEY = 'autoShutDown'
-const shutDownRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
-const shutDownRange_STORAGE_KEY = 'shutDownRange'
+const autoInvisible = ref(false)
+const autoInvisible_STORAGE_KEY = 'autoInvisible'
+const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
+const invisibleRange_STORAGE_KEY = 'invisibleRange'
 
 const selectedColorIndex = ref(0)
 const selectedColorIndex_STORAGE_KEY = 'selectedColorIndex'
@@ -167,10 +167,10 @@ const setAutoNightModeOn = () => {
   }
 }
 
-const setAutoShutDownOn = () => {
-  checkTimeAndSetShutDown()
-  if (!shutDownTimer) {
-    shutDownTimer = setInterval(checkTimeAndSetShutDown, 1000)
+const setAutoInvisibleOn = () => {
+  checkTimeAndSetInvisible()
+  if (!invisibleTimer) {
+    invisibleTimer = setInterval(checkTimeAndSetInvisible, 1000)
   }
 }
 
@@ -181,9 +181,9 @@ const setAutoNightModeOff = () => {
   setToLightMode()
 }
 
-const setAutoShutDownOff = () => {
-  if (shutDownTimer) {
-    clearInterval(shutDownTimer)
+const setAutoInvisibleOff = () => {
+  if (invisibleTimer) {
+    clearInterval(invisibleTimer)
   }
   setToWakeUp()
 }
@@ -198,13 +198,13 @@ const onAutoNightModeChange = (autoNightMode: boolean) => {
   }
 }
 
-const onAutoShutDownChange = (autoShutDown: boolean) => {
-  if (autoShutDown) {
-    setAutoShutDownOn()
-    localStorage.setItem(autoShutDown_STORAGE_KEY, 'true')
+const onAutoInvisibleChange = (autoInvisible: boolean) => {
+  if (autoInvisible) {
+    setAutoInvisibleOn()
+    localStorage.setItem(autoInvisible_STORAGE_KEY, 'true')
   } else {
-    setAutoShutDownOff()
-    localStorage.removeItem(autoShutDown_STORAGE_KEY)
+    setAutoInvisibleOff()
+    localStorage.removeItem(autoInvisible_STORAGE_KEY)
   }
 }
 
@@ -230,11 +230,11 @@ const setToNightMode = () => {
 }
 
 const setToWakeUp = () => {
-  isShutDown.value = false
+  isInvisible.value = false
 }
 
-const setToShutDown = () => {
-  isShutDown.value = true
+const setToInvisible = () => {
+  isInvisible.value = true
 }
 
 const checkTimeAndSetNightMode = () => {
@@ -252,32 +252,32 @@ const checkTimeAndSetNightMode = () => {
   }
 }
 
-const checkTimeAndSetShutDown = () => {
-  const shutDownStartAt = shutDownRange.value[0]
-  const shutDownEndAt = shutDownRange.value[1]
-  if (!shutDownStartAt || !shutDownEndAt) {
+const checkTimeAndSetInvisible = () => {
+  const invisibleStartAt = invisibleRange.value[0]
+  const invisibleEndAt = invisibleRange.value[1]
+  if (!invisibleStartAt || !invisibleEndAt) {
     return
   }
 
-  const isShutDown_ = checkBetweenTime(shutDownStartAt, shutDownEndAt)
-  if (isShutDown_) {
-    if (!isShutDown.value) setToShutDown();
+  const isInvisible_ = checkBetweenTime(invisibleStartAt, invisibleEndAt)
+  if (isInvisible_) {
+    if (!isInvisible.value) setToInvisible();
   } else {
-    if (isShutDown.value) setToWakeUp();
+    if (isInvisible.value) setToWakeUp();
   }
 }
 
 const onNightModeRangeChange = () => {
-  localStorage.setItem(nightModeRange_STORAGE_KEY, JSON.stringify(shutDownRange.value))
+  localStorage.setItem(nightModeRange_STORAGE_KEY, JSON.stringify(invisibleRange.value))
 }
 
-const onShutDownRangeChange = () => {
-  localStorage.setItem(shutDownRange_STORAGE_KEY, JSON.stringify(shutDownRange.value))
+const onInvisibleRangeChange = () => {
+  localStorage.setItem(invisibleRange_STORAGE_KEY, JSON.stringify(invisibleRange.value))
 }
 
 onMounted(() => {
   autoNightMode.value = localStorage.getItem(autoNightMode_STORAGE_KEY) !== null
-  autoShutDown.value = localStorage.getItem(autoShutDown_STORAGE_KEY) !== null
+  autoInvisible.value = localStorage.getItem(autoInvisible_STORAGE_KEY) !== null
 
   {
     const nightModeRange_ = localStorage.getItem(nightModeRange_STORAGE_KEY)
@@ -288,15 +288,15 @@ onMounted(() => {
   }
 
   {
-    const shutDownRange_ = localStorage.getItem(shutDownRange_STORAGE_KEY)
-    if (shutDownRange_) {
-      const parsed = JSON.parse(shutDownRange_);
-      shutDownRange.value = parsed.map((s: string) => new Date(s));
+    const invisibleRange_ = localStorage.getItem(invisibleRange_STORAGE_KEY)
+    if (invisibleRange_) {
+      const parsed = JSON.parse(invisibleRange_);
+      invisibleRange.value = parsed.map((s: string) => new Date(s));
     }
   }
 
   onAutoNightModeChange(autoNightMode.value)
-  onAutoShutDownChange(autoShutDown.value)
+  onAutoInvisibleChange(autoInvisible.value)
 })
 
 onBeforeUnmount(() => {
@@ -304,8 +304,8 @@ onBeforeUnmount(() => {
     clearInterval(nightModeTimer)
   }
 
-  if (shutDownTimer) {
-    clearInterval(shutDownTimer)
+  if (invisibleTimer) {
+    clearInterval(invisibleTimer)
   }
 })
 
