@@ -3,7 +3,7 @@
     <div>向下滑动</div>
     <div>Swipe Down</div>
   </div>
-  <time v-if="digits.length > 0" class="font">
+  <time v-if="digits.length > 0" class="font" :style="{ opacity: isShutDown ? 0 : 1 }">
     <span :class="['digit', 'digit-0']">
       {{ digits[0] }}
     </span>
@@ -36,21 +36,61 @@
       </div>
     </div>
   </div>
-  <div style="display: flex;flex-direction: row;align-items: center;padding-top: 1vh">
+  <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
     <div style="padding-right: 0.4vw;">自动夜间模式</div>
-    <el-tooltip
-        class="box-item"
-        effect="dark"
-        content="将会在00:00-06:00生效"
-        placement="top-start"
-    >
-      <el-switch
-          v-model="autoNightMode"
-          class="ml-2"
-          style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
-          @change="onAutoNightModeChange"
+    <el-switch
+        v-model="autoNightMode"
+        class="ml-2"
+        style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
+        @change="onAutoNightModeChange"
+    />
+    <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoNightMode">
+      <div style="padding-right: 0.5vw;">起止时间：</div>
+      <el-time-picker
+          v-model="nightModeRange[0]"
+          size="default"
+          arrow-control
+          placeholder="开始时间"
+          style="width: 16vw;"
+          @change="onNightModeRangeChange"
       />
-    </el-tooltip>
+      <div style="padding: 0 5px">To</div>
+      <el-time-picker
+          v-model="nightModeRange[1]"
+          size="default"
+          arrow-control
+          placeholder="结束时间"
+          style="width: 16vw;"
+          @change="onNightModeRangeChange"
+      />
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
+    <div style="padding-right: 0.4vw;">自动关闭显示</div>
+    <el-switch
+        v-model="autoShutDown"
+        class="ml-2"
+        style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
+        @change="onAutoShutDownChange"
+    />
+    <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoShutDown">
+      <div style="padding-right: 0.5vw;">起止时间：</div>
+      <el-time-picker
+          v-model="shutDownRange[0]"
+          size="default"
+          placeholder="开始时间"
+          style="width: 16vw;"
+          @change="onShutDownRangeChange"
+      />
+      <div style="padding: 0 5px">To</div>
+      <el-time-picker
+          v-model="shutDownRange[1]"
+          size="default"
+          placeholder="结束时间"
+          style="width: 16vw;"
+          @change="onShutDownRangeChange"
+      />
+    </div>
   </div>
   <div style="padding-bottom: 10vh"></div>
 </template>
@@ -87,10 +127,20 @@ const toggleExpanded = () => {
 }
 
 const isNightMode = ref(false)
+const isShutDown = ref(false)
+
 let nightModeTimer: number | undefined
+let shutDownTimer: number | undefined
 
 const autoNightMode = ref(false)
 const autoNightMode_STORAGE_KEY = 'autoNightMode'
+const nightModeRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
+const nightModeRange_STORAGE_KEY = 'nightModeRange'
+
+const autoShutDown = ref(false)
+const autoShutDown_STORAGE_KEY = 'autoShutDown'
+const shutDownRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
+const shutDownRange_STORAGE_KEY = 'shutDownRange'
 
 const selectedColorIndex = ref(0)
 const selectedColorIndex_STORAGE_KEY = 'selectedColorIndex'
@@ -111,9 +161,16 @@ const setColors = (index: number) => {
 }
 
 const setAutoNightModeOn = () => {
-  checkTimeAndSetMode()
+  checkTimeAndSetNightMode()
   if (!nightModeTimer) {
-    nightModeTimer = setInterval(checkTimeAndSetMode, 1000)
+    nightModeTimer = setInterval(checkTimeAndSetNightMode, 1000)
+  }
+}
+
+const setAutoShutDownOn = () => {
+  checkTimeAndSetShutDown()
+  if (!shutDownTimer) {
+    shutDownTimer = setInterval(checkTimeAndSetShutDown, 1000)
   }
 }
 
@@ -124,6 +181,13 @@ const setAutoNightModeOff = () => {
   setToLightMode()
 }
 
+const setAutoShutDownOff = () => {
+  if (shutDownTimer) {
+    clearInterval(shutDownTimer)
+  }
+  setToWakeUp()
+}
+
 const onAutoNightModeChange = (autoNightMode: boolean) => {
   if (autoNightMode) {
     setAutoNightModeOn()
@@ -131,6 +195,16 @@ const onAutoNightModeChange = (autoNightMode: boolean) => {
   } else {
     setAutoNightModeOff()
     localStorage.removeItem(autoNightMode_STORAGE_KEY)
+  }
+}
+
+const onAutoShutDownChange = (autoShutDown: boolean) => {
+  if (autoShutDown) {
+    setAutoShutDownOn()
+    localStorage.setItem(autoShutDown_STORAGE_KEY, 'true')
+  } else {
+    setAutoShutDownOff()
+    localStorage.removeItem(autoShutDown_STORAGE_KEY)
   }
 }
 
@@ -155,26 +229,97 @@ const setToNightMode = () => {
   root.style.setProperty('--color-colon', nightModeColors[1])
 }
 
-const checkTimeAndSetMode = () => {
-  const hour = new Date().getHours()
-  if (hour >= 0 && hour < 6) {
-    if (!isNightMode.value) setToNightMode()
-  } else {
-    if (isNightMode.value) setToLightMode()
+const setToWakeUp = () => {
+  isShutDown.value = false
+}
+
+const setToShutDown = () => {
+  isShutDown.value = true
+}
+
+const checkTimeAndSetNightMode = () => {
+  const nightModeStartAt = nightModeRange.value[0]
+  const nightModeEndAt = nightModeRange.value[1]
+  if (!nightModeStartAt || !nightModeEndAt) {
+    return
   }
+
+  const isNight = checkBetweenTime(nightModeStartAt, nightModeEndAt)
+  if (isNight) {
+    if (!isNightMode.value) setToNightMode();
+  } else {
+    if (isNightMode.value) setToLightMode();
+  }
+}
+
+const checkTimeAndSetShutDown = () => {
+  const shutDownStartAt = shutDownRange.value[0]
+  const shutDownEndAt = shutDownRange.value[1]
+  if (!shutDownStartAt || !shutDownEndAt) {
+    return
+  }
+
+  const isShutDown_ = checkBetweenTime(shutDownStartAt, shutDownEndAt)
+  if (isShutDown_) {
+    if (!isShutDown.value) setToShutDown();
+  } else {
+    if (isShutDown.value) setToWakeUp();
+  }
+}
+
+const onNightModeRangeChange = () => {
+  localStorage.setItem(nightModeRange_STORAGE_KEY, JSON.stringify(shutDownRange.value))
+}
+
+const onShutDownRangeChange = () => {
+  localStorage.setItem(shutDownRange_STORAGE_KEY, JSON.stringify(shutDownRange.value))
 }
 
 onMounted(() => {
   autoNightMode.value = localStorage.getItem(autoNightMode_STORAGE_KEY) !== null
+  autoShutDown.value = localStorage.getItem(autoShutDown_STORAGE_KEY) !== null
+
+  {
+    const nightModeRange_ = localStorage.getItem(nightModeRange_STORAGE_KEY)
+    if (nightModeRange_) {
+      const parsed = JSON.parse(nightModeRange_);
+      nightModeRange.value = parsed.map((s: string) => new Date(s));
+    }
+  }
+
+  {
+    const shutDownRange_ = localStorage.getItem(shutDownRange_STORAGE_KEY)
+    if (shutDownRange_) {
+      const parsed = JSON.parse(shutDownRange_);
+      shutDownRange.value = parsed.map((s: string) => new Date(s));
+    }
+  }
+
   onAutoNightModeChange(autoNightMode.value)
+  onAutoShutDownChange(autoShutDown.value)
 })
 
 onBeforeUnmount(() => {
   if (nightModeTimer) {
     clearInterval(nightModeTimer)
   }
+
+  if (shutDownTimer) {
+    clearInterval(shutDownTimer)
+  }
 })
 
+const checkBetweenTime = (start: Date, end: Date) => {
+  const now = new Date();
+  const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+  const startSeconds = start.getHours() * 3600 + start.getMinutes() * 60 + start.getSeconds();
+  const endSeconds = end.getHours() * 3600 + end.getMinutes() * 60 + end.getSeconds();
+
+  return startSeconds <= endSeconds
+      ? nowSeconds >= startSeconds && nowSeconds < endSeconds // 不跨天
+      : nowSeconds >= startSeconds || nowSeconds < endSeconds // 跨天
+}
 </script>
 
 <style>
