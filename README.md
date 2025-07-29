@@ -18,6 +18,10 @@ Standby Web
 
 ![Float](Screenshot/Float.png)
 
+## See Also
+
+[Fu-XDU/StandBy: A minimal Clock application for iPhone / iPad and Mac.](https://github.com/Fu-XDU/StandBy)
+
 ## Nginx Config
 
 ```nginx
