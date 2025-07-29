@@ -1,38 +1,22 @@
-# StandBy Web
+<h1 align="center">
+  <br>
+  <a href="https://github.com/Fu-XDU/StandBy-Web"><img src="https://github.com/Fu-XDU/StandBy-Web/blob/main/src/assets/logo.png?raw=true" alt="standby-web" width="200"></a>
+  <br>
+Standby Web
+  <br>
+</h1>
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/5Q5Wtj99uUSh3smo3BU9Fu/AkAG8p4SHPuRmyxAWrgwwN/tree/main.svg?style=svg&circle-token=CCIPRJ_2fmHaM97dUucEZvqYHdRzV_1f3362ba02bd572b98bf3248bf92f32b297c010e)](https://dl.circleci.com/status-badge/redirect/circleci/5Q5Wtj99uUSh3smo3BU9Fu/AkAG8p4SHPuRmyxAWrgwwN/tree/main)
+<h4 align="center">A minimal Web Clock</a>.</h4>
 
-This template should help get you started developing with Vue 3 in Vite.
+<p align="center">
+<a href="https://dl.circleci.com/status-badge/redirect/circleci/5Q5Wtj99uUSh3smo3BU9Fu/AkAG8p4SHPuRmyxAWrgwwN/tree/main"><img src="https://dl.circleci.com/status-badge/img/circleci/5Q5Wtj99uUSh3smo3BU9Fu/AkAG8p4SHPuRmyxAWrgwwN/tree/main.svg?style=svg&circle-token=CCIPRJ_2fmHaM97dUucEZvqYHdRzV_1f3362ba02bd572b98bf3248bf92f32b297c010e" alt="CircleCI"></a>
+<a href="/CONTRIBUTING.md" title="Go to contributions doc"><img src="https://img.shields.io/badge/contributions-welcome-blue" alt="contributions - welcome"></a>
+<a href="#license"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+</p>
 
-## Recommended IDE Setup
+## Screenshot
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
+![Float](Screenshot/Float.png)
 
 ## Nginx Config
 
