@@ -92,12 +92,31 @@
       />
     </div>
   </div>
+  <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
+    <div style="padding-right: 0.4vw;">全天关闭显示</div>
+    <el-switch
+        v-model="invisibleDayEnable"
+        class="ml-2"
+        style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
+        @change="onInvisibleDayEnableChange"
+    />
+    <div style="padding-left: 20px" v-if="invisibleDayEnable">
+      <el-checkbox-button
+          v-for="(_, index) in invisibleDay"
+          :key="index"
+          v-model="invisibleDay[index]"
+          :label="'周'+weekLabels[index]"
+          size="large"
+      />
+    </div>
+  </div>
+
   <div style="padding-bottom: 10vh"></div>
 </template>
 
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
-import {ref, onMounted, onBeforeUnmount} from 'vue'
+import {ref, onMounted, onBeforeUnmount, watch} from 'vue'
 
 const {digits} = useTime()
 
@@ -131,6 +150,7 @@ const isInvisible = ref(false)
 
 let nightModeTimer: number | undefined
 let invisibleTimer: number | undefined
+let invisibleDayEnableTimer: number | undefined
 
 const autoNightMode = ref(false)
 const autoNightMode_STORAGE_KEY = 'autoNightMode'
@@ -141,6 +161,11 @@ const autoInvisible = ref(false)
 const autoInvisible_STORAGE_KEY = 'autoInvisible'
 const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
 const invisibleRange_STORAGE_KEY = 'invisibleRange'
+const invisibleDayEnable = ref(false)
+const invisibleDayEnable_STORAGE_KEY = 'invisibleDayEnable'
+const invisibleDay = ref([false, false, false, false, false, false, false])
+const invisibleDay_STORAGE_KEY = 'invisibleDays'
+const weekLabels = ref(['日', '一', '二', '三', '四', '五', '六'])
 
 const selectedColorIndex = ref(0)
 const selectedColorIndex_STORAGE_KEY = 'selectedColorIndex'
@@ -174,6 +199,13 @@ const setAutoInvisibleOn = () => {
   }
 }
 
+const setInvisibleDayOn = () => {
+  checkDayAndSetInvisible()
+  if (!invisibleDayEnableTimer) {
+    invisibleDayEnableTimer = setInterval(checkDayAndSetInvisible, 1000)
+  }
+}
+
 const setAutoNightModeOff = () => {
   if (nightModeTimer) {
     clearInterval(nightModeTimer)
@@ -186,6 +218,15 @@ const setAutoInvisibleOff = () => {
     clearInterval(invisibleTimer)
   }
   setToWakeUp()
+}
+
+const setInvisibleDayOff = () => {
+  if (invisibleDayEnableTimer) {
+    clearInterval(invisibleDayEnableTimer)
+  }
+  if (!autoInvisible.value) {
+    setToWakeUp()
+  }
 }
 
 const onAutoNightModeChange = (autoNightMode: boolean) => {
@@ -205,6 +246,16 @@ const onAutoInvisibleChange = (autoInvisible: boolean) => {
   } else {
     setAutoInvisibleOff()
     localStorage.removeItem(autoInvisible_STORAGE_KEY)
+  }
+}
+
+const onInvisibleDayEnableChange = (invisibleDayEnable: boolean) => {
+  if (invisibleDayEnable) {
+    setInvisibleDayOn()
+    localStorage.setItem(invisibleDayEnable_STORAGE_KEY, 'true')
+  } else {
+    setInvisibleDayOff()
+    localStorage.removeItem(invisibleDayEnable_STORAGE_KEY)
   }
 }
 
@@ -252,6 +303,19 @@ const checkTimeAndSetNightMode = () => {
   }
 }
 
+const checkDayAndSetInvisible = () => {
+  const isInvisible_ = invisibleDay.value[new Date().getDay()]
+  if (autoInvisible.value) {
+    return
+  }
+
+  if (isInvisible_) {
+    setToInvisible();
+  } else {
+    setToWakeUp();
+  }
+}
+
 const checkTimeAndSetInvisible = () => {
   const invisibleStartAt = invisibleRange.value[0]
   const invisibleEndAt = invisibleRange.value[1]
@@ -259,11 +323,15 @@ const checkTimeAndSetInvisible = () => {
     return
   }
 
-  const isInvisible_ = checkBetweenTime(invisibleStartAt, invisibleEndAt)
+  const isInvisible_ = invisibleDay.value[new Date().getDay()] || checkBetweenTime(invisibleStartAt, invisibleEndAt)
   if (isInvisible_) {
-    if (!isInvisible.value) setToInvisible();
+    if (!isInvisible.value) {
+      setToInvisible();
+    }
   } else {
-    if (isInvisible.value) setToWakeUp();
+    if (isInvisible.value) {
+      setToWakeUp();
+    }
   }
 }
 
@@ -275,9 +343,14 @@ const onInvisibleRangeChange = () => {
   localStorage.setItem(invisibleRange_STORAGE_KEY, JSON.stringify(invisibleRange.value))
 }
 
+const onInvisibleDayChange = () => {
+  localStorage.setItem(invisibleDay_STORAGE_KEY, JSON.stringify(invisibleDay.value))
+}
+
 onMounted(() => {
   autoNightMode.value = localStorage.getItem(autoNightMode_STORAGE_KEY) !== null
   autoInvisible.value = localStorage.getItem(autoInvisible_STORAGE_KEY) !== null
+  invisibleDayEnable.value = localStorage.getItem(invisibleDayEnable_STORAGE_KEY) !== null
 
   {
     const nightModeRange_ = localStorage.getItem(nightModeRange_STORAGE_KEY)
@@ -295,8 +368,16 @@ onMounted(() => {
     }
   }
 
+  {
+    const invisibleDay_ = localStorage.getItem(invisibleDay_STORAGE_KEY)
+    if (invisibleDay_) {
+      invisibleDay.value = JSON.parse(invisibleDay_);
+    }
+  }
+
   onAutoNightModeChange(autoNightMode.value)
   onAutoInvisibleChange(autoInvisible.value)
+  onInvisibleDayEnableChange(invisibleDayEnable.value)
 })
 
 onBeforeUnmount(() => {
@@ -308,6 +389,8 @@ onBeforeUnmount(() => {
     clearInterval(invisibleTimer)
   }
 })
+
+watch(invisibleDay, onInvisibleDayChange, {deep: true})
 
 const checkBetweenTime = (start: Date, end: Date) => {
   const now = new Date();
