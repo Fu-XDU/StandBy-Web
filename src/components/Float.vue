@@ -112,11 +112,21 @@
   </div>
 
   <div style="padding-bottom: 10vh"></div>
+  <footer class="footer">
+    <a :href="`${repoUrl}/commit/${commitHash}`" target="_blank" rel="noopener noreferrer">
+      Commit: {{ commitHash }}
+    </a>
+    <p>Build time: {{ buildTime }}</p>
+  </footer>
 </template>
 
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
 import {ref, onMounted, onBeforeUnmount, watch} from 'vue'
+
+const repoUrl = __REPO_URL__
+const commitHash = __COMMIT_HASH__
+const buildTime = __BUILD_TIME__
 
 const {digits} = useTime()
 
@@ -532,5 +542,12 @@ const checkBetweenTime = (start: Date, end: Date) => {
   box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: transform 0.2s ease;
+}
+
+.footer {
+  text-align: center;   /* 居中 */
+  font-size: 12px;      /* 小一点 */
+  color: #666;          /* 灰色 */
+  padding: 10px 0;
 }
 </style>
