@@ -6,7 +6,10 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { execSync } from 'child_process'
 
 const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
-const buildTime = new Date().toISOString()
+const buildTime = new Date().toLocaleString('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  hour12: false
+})
 const repoUrl = 'https://github.com/Fu-XDU/StandBy-Web'
 
 // https://vite.dev/config/
