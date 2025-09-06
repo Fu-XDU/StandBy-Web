@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import {ref, onMounted, onUnmounted} from 'vue'
 
 // 定义一个返回当前小时和分钟四个数字的组合逻辑
 export function useTime() {
@@ -44,6 +44,5 @@ export function useTime() {
         if (recalibrationTimer) clearInterval(recalibrationTimer)
     })
 
-    return { digits }
+    return {digits}
 }
-

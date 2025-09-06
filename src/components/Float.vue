@@ -42,7 +42,6 @@
         v-model="autoNightMode"
         class="ml-2"
         style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
-        @change="onAutoNightModeChange"
     />
     <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoNightMode">
       <div style="padding-right: 0.5vw;">起止时间：</div>
@@ -52,7 +51,7 @@
           arrow-control
           placeholder="开始时间"
           style="width: 16vw;"
-          @change="onNightModeRangeChange"
+          :clearable="false"
       />
       <div style="padding: 0 5px">To</div>
       <el-time-picker
@@ -61,7 +60,7 @@
           arrow-control
           placeholder="结束时间"
           style="width: 16vw;"
-          @change="onNightModeRangeChange"
+          :clearable="false"
       />
     </div>
   </div>
@@ -71,7 +70,6 @@
         v-model="autoInvisible"
         class="ml-2"
         style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
-        @change="onAutoInvisibleChange"
     />
     <div style="display: flex; align-items: center; padding-left: 1.5vh" v-if="autoInvisible">
       <div style="padding-right: 0.5vw;">起止时间：</div>
@@ -80,7 +78,7 @@
           size="default"
           placeholder="开始时间"
           style="width: 16vw;"
-          @change="onInvisibleRangeChange"
+          :clearable="false"
       />
       <div style="padding: 0 5px">To</div>
       <el-time-picker
@@ -88,7 +86,7 @@
           size="default"
           placeholder="结束时间"
           style="width: 16vw;"
-          @change="onInvisibleRangeChange"
+          :clearable="false"
       />
     </div>
   </div>
@@ -98,7 +96,6 @@
         v-model="invisibleDayEnable"
         class="ml-2"
         style="--el-switch-on-color: #ff4949; --el-switch-off-color: #4C4D4F"
-        @change="onInvisibleDayEnableChange"
     />
     <div style="padding-left: 20px" v-if="invisibleDayEnable">
       <el-checkbox-button
@@ -122,7 +119,8 @@
 
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
-import {ref, onMounted, onBeforeUnmount, watch} from 'vue'
+import {onBeforeUnmount, onMounted, ref} from 'vue'
+import {useLocalStorageSync} from "@/composables/useLocalStorageSync.ts";
 
 const repoUrl = __REPO_URL__
 const commitHash = __COMMIT_HASH__
@@ -158,23 +156,15 @@ const toggleExpanded = () => {
 const isNightMode = ref(false)
 const isInvisible = ref(false)
 
-let nightModeTimer: number | undefined
-let invisibleTimer: number | undefined
-let invisibleDayEnableTimer: number | undefined
+let timer: number | undefined
 
 const autoNightMode = ref(false)
-const autoNightMode_STORAGE_KEY = 'autoNightMode'
 const nightModeRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
-const nightModeRange_STORAGE_KEY = 'nightModeRange'
 
 const autoInvisible = ref(false)
-const autoInvisible_STORAGE_KEY = 'autoInvisible'
 const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
-const invisibleRange_STORAGE_KEY = 'invisibleRange'
 const invisibleDayEnable = ref(false)
-const invisibleDayEnable_STORAGE_KEY = 'invisibleDayEnable'
 const invisibleDay = ref([false, false, false, false, false, false, false])
-const invisibleDay_STORAGE_KEY = 'invisibleDays'
 const weekLabels = ref(['日', '一', '二', '三', '四', '五', '六'])
 
 const selectedColorIndex = ref(0)
@@ -195,81 +185,27 @@ const setColors = (index: number) => {
   root.style.setProperty('--color-colon', 'rgba(196, 207, 218)')
 }
 
-const setAutoNightModeOn = () => {
-  checkTimeAndSetNightMode()
-  if (!nightModeTimer) {
-    nightModeTimer = setInterval(checkTimeAndSetNightMode, 1000)
-  }
-}
-
-const setAutoInvisibleOn = () => {
-  checkTimeAndSetInvisible()
-  if (!invisibleTimer) {
-    invisibleTimer = setInterval(checkTimeAndSetInvisible, 1000)
-  }
-}
-
-const setInvisibleDayOn = () => {
-  checkDayAndSetInvisible()
-  if (!invisibleDayEnableTimer) {
-    invisibleDayEnableTimer = setInterval(checkDayAndSetInvisible, 1000)
-  }
-}
-
-const setAutoNightModeOff = () => {
-  if (nightModeTimer) {
-    clearInterval(nightModeTimer)
-  }
-  setToLightMode()
-}
-
-const setAutoInvisibleOff = () => {
-  if (invisibleTimer) {
-    clearInterval(invisibleTimer)
-  }
-  setToWakeUp()
-}
-
-const setInvisibleDayOff = () => {
-  if (invisibleDayEnableTimer) {
-    clearInterval(invisibleDayEnableTimer)
-  }
-  if (!autoInvisible.value) {
-    setToWakeUp()
-  }
-}
-
-const onAutoNightModeChange = (autoNightMode: boolean) => {
-  if (autoNightMode) {
-    setAutoNightModeOn()
-    localStorage.setItem(autoNightMode_STORAGE_KEY, 'true')
+const timerRoutine = () => {
+  if (autoNightMode.value) {
+    checkTimeAndSetNightMode()
   } else {
-    setAutoNightModeOff()
-    localStorage.removeItem(autoNightMode_STORAGE_KEY)
+    setToLightMode()
   }
-}
 
-const onAutoInvisibleChange = (autoInvisible: boolean) => {
-  if (autoInvisible) {
-    setAutoInvisibleOn()
-    localStorage.setItem(autoInvisible_STORAGE_KEY, 'true')
-  } else {
-    setAutoInvisibleOff()
-    localStorage.removeItem(autoInvisible_STORAGE_KEY)
+  let invisible = false;
+  if (autoInvisible.value) {
+    invisible = isInvisibleTime()
   }
-}
 
-const onInvisibleDayEnableChange = (invisibleDayEnable: boolean) => {
-  if (invisibleDayEnable) {
-    setInvisibleDayOn()
-    localStorage.setItem(invisibleDayEnable_STORAGE_KEY, 'true')
-  } else {
-    setInvisibleDayOff()
-    localStorage.removeItem(invisibleDayEnable_STORAGE_KEY)
+  if (invisibleDayEnable.value) {
+    invisible ||= isDayInvisible()
   }
+
+  isInvisible.value = invisible
 }
 
 const setToLightMode = () => {
+  if (!isNightMode.value) return
   isNightMode.value = false
   const savedIndex = localStorage.getItem(selectedColorIndex_STORAGE_KEY)
   if (savedIndex !== null) {
@@ -279,6 +215,7 @@ const setToLightMode = () => {
 }
 
 const setToNightMode = () => {
+  if (isNightMode.value) return
   isNightMode.value = true
 
   const root = document.documentElement
@@ -290,14 +227,6 @@ const setToNightMode = () => {
   root.style.setProperty('--color-colon', nightModeColors[1])
 }
 
-const setToWakeUp = () => {
-  isInvisible.value = false
-}
-
-const setToInvisible = () => {
-  isInvisible.value = true
-}
-
 const checkTimeAndSetNightMode = () => {
   const nightModeStartAt = nightModeRange.value[0]
   const nightModeEndAt = nightModeRange.value[1]
@@ -307,100 +236,44 @@ const checkTimeAndSetNightMode = () => {
 
   const isNight = checkBetweenTime(nightModeStartAt, nightModeEndAt)
   if (isNight) {
-    if (!isNightMode.value) setToNightMode();
+    setToNightMode();
   } else {
-    if (isNightMode.value) setToLightMode();
+    setToLightMode();
   }
 }
 
-const checkDayAndSetInvisible = () => {
-  const isInvisible_ = invisibleDay.value[new Date().getDay()]
-  if (autoInvisible.value) {
-    return
-  }
-
-  if (isInvisible_) {
-    setToInvisible();
-  } else {
-    setToWakeUp();
-  }
+const isDayInvisible = () => {
+  return invisibleDay.value[new Date().getDay()]
 }
 
-const checkTimeAndSetInvisible = () => {
+const isInvisibleTime = () => {
   const invisibleStartAt = invisibleRange.value[0]
   const invisibleEndAt = invisibleRange.value[1]
   if (!invisibleStartAt || !invisibleEndAt) {
-    return
+    return false
   }
 
-  const isInvisible_ = invisibleDay.value[new Date().getDay()] || checkBetweenTime(invisibleStartAt, invisibleEndAt)
-  if (isInvisible_) {
-    if (!isInvisible.value) {
-      setToInvisible();
-    }
-  } else {
-    if (isInvisible.value) {
-      setToWakeUp();
-    }
-  }
-}
-
-const onNightModeRangeChange = () => {
-  localStorage.setItem(nightModeRange_STORAGE_KEY, JSON.stringify(invisibleRange.value))
-}
-
-const onInvisibleRangeChange = () => {
-  localStorage.setItem(invisibleRange_STORAGE_KEY, JSON.stringify(invisibleRange.value))
-}
-
-const onInvisibleDayChange = () => {
-  localStorage.setItem(invisibleDay_STORAGE_KEY, JSON.stringify(invisibleDay.value))
+  return invisibleDay.value[new Date().getDay()] || checkBetweenTime(invisibleStartAt, invisibleEndAt);
 }
 
 onMounted(() => {
-  autoNightMode.value = localStorage.getItem(autoNightMode_STORAGE_KEY) !== null
-  autoInvisible.value = localStorage.getItem(autoInvisible_STORAGE_KEY) !== null
-  invisibleDayEnable.value = localStorage.getItem(invisibleDayEnable_STORAGE_KEY) !== null
+  useLocalStorageSync({autoNightMode, autoInvisible, invisibleDayEnable})
+  useLocalStorageSync({nightModeRange, invisibleRange}, {
+    parser: (arr: string[]) => arr.map((s) => new Date(s)), deep: true
+  })
+  useLocalStorageSync({invisibleDay}, {deep: true})
 
-  {
-    const nightModeRange_ = localStorage.getItem(nightModeRange_STORAGE_KEY)
-    if (nightModeRange_) {
-      const parsed = JSON.parse(nightModeRange_);
-      nightModeRange.value = parsed.map((s: string) => new Date(s));
-    }
+  if (!timer) {
+    timerRoutine() // 立即执行一次
+    timer = setInterval(timerRoutine, 1000) // 每秒执行一次
   }
-
-  {
-    const invisibleRange_ = localStorage.getItem(invisibleRange_STORAGE_KEY)
-    if (invisibleRange_) {
-      const parsed = JSON.parse(invisibleRange_);
-      invisibleRange.value = parsed.map((s: string) => new Date(s));
-    }
-  }
-
-  {
-    const invisibleDay_ = localStorage.getItem(invisibleDay_STORAGE_KEY)
-    if (invisibleDay_) {
-      invisibleDay.value = JSON.parse(invisibleDay_);
-    }
-  }
-
-  onAutoNightModeChange(autoNightMode.value)
-  onAutoInvisibleChange(autoInvisible.value)
-  onInvisibleDayEnableChange(invisibleDayEnable.value)
 })
 
 onBeforeUnmount(() => {
-  if (nightModeTimer) {
-    clearInterval(nightModeTimer)
-  }
-
-  if (invisibleTimer) {
-    clearInterval(invisibleTimer)
+  if (timer) {
+    clearInterval(timer)
   }
 })
-
-watch(invisibleDay, onInvisibleDayChange, {deep: true})
 
 const checkBetweenTime = (start: Date, end: Date) => {
   const now = new Date();
@@ -545,9 +418,9 @@ const checkBetweenTime = (start: Date, end: Date) => {
 }
 
 .footer {
-  text-align: center;   /* 居中 */
-  font-size: 12px;      /* 小一点 */
-  color: #666;          /* 灰色 */
+  text-align: center; /* 居中 */
+  font-size: 12px; /* 小一点 */
+  color: #666; /* 灰色 */
   padding: 10px 0;
 }
 </style>
