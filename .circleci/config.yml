@@ -1,4 +1,10 @@
 version: 2.1
+executors:
+  tencent-cloud-hk:
+    machine: true
+    resource_class: mac-mini/server-1
+    working_directory: /var/opt/circleci/workdir/StandBy-Web
+    shell: /usr/bin/bash
 workflows:
   build:
     jobs:
@@ -12,28 +18,24 @@ workflows:
 
 jobs:
   clone-or-pull-repo:
-    machine: true
-    resource_class: mac-mini/server-1
-    shell: /bin/zsh  # 使用 zsh
-    working_directory: ~/CircleCI
-    environment:
-      https_proxy: http://127.0.0.1:7890
-      http_proxy: http://127.0.0.1:7890
-      all_proxy: socks5://127.0.0.1:7890
+    executor: tencent-cloud-hk
+    working_directory: /var/opt/circleci/workdir
     steps:
       - run:
           name: "Check tools"
           command: |
+            echo "Current user: $(whoami)"
+            echo "Current dir: $(pwd)"
             echo "Current shell: $SHELL"
-            echo "git version: $(git -v)"
+            echo "git version: $(git --version)"
       - run:
           name: "Clone or Pull StandBy-Web repo"
           command: |
-            mkdir -p ~/CircleCI
             if [ -d "StandBy-Web" ] && [ ! -d "StandBy-Web/.git" ]; then
               echo "Error: Directory 'StandBy-Web' exists but is not a Git repository." >&2
               exit 1
             fi
+            grep -q github.com ~/.ssh/known_hosts 2>/dev/null || ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts
             if [ ! -d "StandBy-Web/.git" ]; then
               echo "Cloning repository..."
               git clone git@github.com:Fu-XDU/StandBy-Web.git
@@ -45,37 +47,31 @@ jobs:
               git pull origin main
             fi
   build:
-    machine: true
-    resource_class: mac-mini/server-1
-    shell: /bin/zsh  # 使用 zsh
-    working_directory: ~/CircleCI/StandBy-Web
+    executor: tencent-cloud-hk
     steps:
       - run:
           name: "Setup Node environment"
           command: |
-            echo "Current shell: $SHELL"
-            cat ~/.zshrc >> "$BASH_ENV"
+            cat ~/.profile >> "$BASH_ENV"
             source "$BASH_ENV"
+            echo "Current user: $(whoami)"
+            echo "Current dir: $(pwd)"
+            echo "Current shell: $SHELL"
             echo "Node version: $(node -v)"
             echo "npm version: $(npm -v)"
       - run:
           name: "Install Dependencies"
           command: | 
-            source "$BASH_ENV"
             npm install
       - run:
           name: "Build Dist"
           command: |
-            source "$BASH_ENV"
             npm run build
   deploy:
-    machine: true
-    resource_class: mac-mini/server-1
-    shell: /bin/zsh  # 使用 zsh
-    working_directory: ~/CircleCI/StandBy-Web
+    executor: tencent-cloud-hk
     steps:
       - run:
           name: "Deploy"
           command: |
-            rm -rf /opt/homebrew/var/www/standby
-            mv dist /opt/homebrew/var/www/standby
+            rm -rf /var/opt/circleci/artifacts/standby
+            mv dist /var/opt/circleci/artifacts/standby
