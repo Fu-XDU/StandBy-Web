@@ -1,12 +1,46 @@
 <script setup lang="ts">
+import {onMounted, onUnmounted, useTemplateRef} from 'vue'
 import Float from './components/Float.vue'
+
+const clockRef = useTemplateRef('clock')
+
+const positions = [
+  'translate(0, 0)',
+  'translate(1px, 0)',
+  'translate(1px, 1px)',
+  'translate(0, 1px)',
+] as const
+
+let step = 0
+let intervalId: number | undefined
+
+const applyAntiBurn = () => {
+  const el = clockRef.value
+  if (!el) return
+  el.style.transform = positions[step]
+  step = (step + 1) % positions.length
+}
+
+onMounted(() => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return
+  }
+  applyAntiBurn()
+  intervalId = window.setInterval(applyAntiBurn, 30_000)
+})
+
+onUnmounted(() => {
+  if (intervalId !== undefined) {
+    clearInterval(intervalId)
+  }
+})
 </script>
 
 <template>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <main id="app">
-    <div class="clock">
+    <div ref="clock" class="clock">
       <Float/>
     </div>
   </main>
@@ -30,33 +64,14 @@ html, body {
   margin: 0;
 }
 
-/* 阶跃式防烧屏：仅 1px 位移，每段约 30s 保持不动；无 opacity/缩放 连续插值，降低合成与绘制频率 */
+/* transform 由脚本每 30s 更新，无 CSS animation 时间线 */
 .clock {
   padding-top: 150vh;
-  animation: antiBurnStep 120s linear infinite;
-}
-
-@keyframes antiBurnStep {
-  0%, 24.999% {
-    transform: translate(0, 0);
-  }
-  25%, 49.999% {
-    transform: translate(1px, 0);
-  }
-  50%, 74.999% {
-    transform: translate(1px, 1px);
-  }
-  75%, 99.999% {
-    transform: translate(0, 1px);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .clock {
-    animation: none;
+    transform: none;
   }
 }
 </style>
