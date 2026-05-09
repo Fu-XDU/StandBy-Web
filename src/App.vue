@@ -30,47 +30,33 @@ html, body {
   margin: 0;
 }
 
+/* 阶跃式防烧屏：仅 1px 位移，每段约 30s 保持不动；无 opacity/缩放 连续插值，降低合成与绘制频率 */
 .clock {
   padding-top: 150vh;
-  animation: antiBurnMove 60s infinite linear,
-  antiBurnOpacity 80s infinite ease-in-out,
-  antiBurnTransform 120s infinite ease-in-out;
-  will-change: transform, opacity;
+  animation: antiBurnStep 120s linear infinite;
 }
 
-@keyframes antiBurnMove {
-  0% {
-    transform: translate(0px, 0px);
+@keyframes antiBurnStep {
+  0%, 24.999% {
+    transform: translate(0, 0);
   }
-  25% {
-    transform: translate(1px, 0px);
+  25%, 49.999% {
+    transform: translate(1px, 0);
   }
-  50% {
+  50%, 74.999% {
     transform: translate(1px, 1px);
   }
-  75% {
-    transform: translate(0px, 1px);
+  75%, 99.999% {
+    transform: translate(0, 1px);
   }
   100% {
-    transform: translate(0px, 0px);
+    transform: translate(0, 0);
   }
 }
 
-@keyframes antiBurnOpacity {
-  0%, 100% {
-    opacity: 0.96;
-  }
-  50% {
-    opacity: 0.88;
-  }
-}
-
-@keyframes antiBurnTransform {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.01) rotate(0.3deg);
+@media (prefers-reduced-motion: reduce) {
+  .clock {
+    animation: none;
   }
 }
 </style>

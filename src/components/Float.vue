@@ -120,7 +120,7 @@
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
 import {onBeforeUnmount, onMounted, ref} from 'vue'
-import {useLocalStorageSync} from "@/composables/useLocalStorageSync.ts";
+import {useLocalStorageSync} from '@/composables/useLocalStorageSync'
 
 const repoUrl = __REPO_URL__
 const commitHash = __COMMIT_HASH__
@@ -156,7 +156,39 @@ const toggleExpanded = () => {
 const isNightMode = ref(false)
 const isInvisible = ref(false)
 
-let timer: number | undefined
+let intervalId: number | undefined
+let alignTimeoutId: number | undefined
+
+const stopScheduledTimers = () => {
+  if (intervalId !== undefined) {
+    clearInterval(intervalId)
+    intervalId = undefined
+  }
+  if (alignTimeoutId !== undefined) {
+    clearTimeout(alignTimeoutId)
+    alignTimeoutId = undefined
+  }
+}
+
+const startMinuteAlignedSchedule = () => {
+  stopScheduledTimers()
+  timerRoutine()
+  const now = new Date()
+  const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+  alignTimeoutId = window.setTimeout(() => {
+    alignTimeoutId = undefined
+    timerRoutine()
+    intervalId = window.setInterval(timerRoutine, 60 * 1000)
+  }, msUntilNextMinute)
+}
+
+const onVisibilityChange = () => {
+  if (document.hidden) {
+    stopScheduledTimers()
+  } else {
+    startMinuteAlignedSchedule()
+  }
+}
 
 const autoNightMode = ref(false)
 const nightModeRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
@@ -263,16 +295,13 @@ onMounted(() => {
   })
   useLocalStorageSync({invisibleDay}, {deep: true})
 
-  if (!timer) {
-    timerRoutine() // 立即执行一次
-    timer = setInterval(timerRoutine, 1000) // 每秒执行一次
-  }
+  startMinuteAlignedSchedule()
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount(() => {
-  if (timer) {
-    clearInterval(timer)
-  }
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  stopScheduledTimers()
 })
 
 const checkBetweenTime = (start: Date, end: Date) => {
