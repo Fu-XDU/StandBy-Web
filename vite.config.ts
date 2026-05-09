@@ -28,5 +28,6 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
-  base: '/standby/',
+  // 相对 base：构建产物可在任意反向代理前缀下访问（如 /、/standby/、/clock/）
+  base: './',
 })

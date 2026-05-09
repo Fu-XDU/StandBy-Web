@@ -22,17 +22,23 @@ Standby Web
 
 [Fu-XDU/StandBy: A minimal Clock application for iPhone / iPad and Mac.](https://github.com/Fu-XDU/StandBy)
 
-## Nginx Config
+## Nginx (generic subpath)
+
+The production build uses a relative asset base (`base: './'` in Vite), so you can host the app under any URL prefix. Replace **`YOUR_PREFIX`** in the snippet (e.g. `/standby`, `/clock`) and keep the on-disk layout aligned with the last `try_files` argument.
+
+With **`root`**, put static files under **`<root>/YOUR_PREFIX/`** (example: `root` is `/var/www/html` and prefix is `/clock` → entry file `/var/www/html/clock/index.html`):
 
 ```nginx
-    location ^~ /standby {
-        root   /opt/homebrew/var/www/;
-        index  index.html index.htm;
-        try_files  $uri $uri/ /standby/index.html;
-        
-        location ~* \.(otf|woff2)$ {
-            expires 1y;
-            add_header Cache-Control "public, max-age=31536000, immutable";
-        }
+location ^~ /YOUR_PREFIX {
+    root /path/to/parent;
+    index index.html index.htm;
+    try_files $uri $uri/ /YOUR_PREFIX/index.html;
+
+    location ~* \.(otf|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
+}
 ```
+
+If you **`proxy_pass`** a prefix to an upstream static host, relative assets still work as long as the browser’s URL matches that prefix; configure SPA fallback to `index.html` on the upstream or gateway as needed.
