@@ -12,6 +12,8 @@ func Run() {
 }
 
 func getRoutes(router *gin.Engine) {
+	router.Use(allowRemoteCors)
 	v1 := router.Group("/v1")
+	addRemoteRoutes(v1)
 	webRoutesV1(v1)
 }

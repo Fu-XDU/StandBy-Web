@@ -42,3 +42,51 @@ location ^~ /YOUR_PREFIX {
 ```
 
 If you **`proxy_pass`** a prefix to an upstream static host, relative assets still work as long as the browser’s URL matches that prefix; configure SPA fallback to `index.html` on the upstream or gateway as needed.
+
+## Remote config API
+
+The clock page registers a random `deviceId` (stored in browser `localStorage` as `standby_device_id`). Use that id to read or patch **only your own** config. The page syncs from the server on load and every minute.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/remote/register` | Register `deviceId` (done automatically by the page) |
+| POST | `/v1/remote/sync` | Full config sync with `updatedAt` |
+| GET | `/v1/remote/config?deviceId=&pageId=float` | Read server config |
+| PATCH | `/v1/remote/config` | Update **only the fields you send** |
+
+`pageId` for the Float clock is `float`.
+
+### PATCH examples (partial update)
+
+Only brightness:
+
+```bash
+curl -X PATCH 'http://127.0.0.1:1423/v1/remote/config' \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceId":"YOUR_DEVICE_ID","pageId":"float","brightness":0.6}'
+```
+
+Color preset index (0–13):
+
+```bash
+curl -X PATCH 'http://127.0.0.1:1423/v1/remote/config' \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceId":"YOUR_DEVICE_ID","pageId":"float","selectedColorIndex":5}'
+```
+
+Night mode schedule (ISO date-time strings, two elements):
+
+```bash
+curl -X PATCH 'http://127.0.0.1:1423/v1/remote/config' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "deviceId":"YOUR_DEVICE_ID",
+    "pageId":"float",
+    "autoNightMode":true,
+    "nightModeRange":["2025-01-01T22:00:00.000Z","2025-01-01T07:00:00.000Z"]
+  }'
+```
+
+Other patchable fields: `autoInvisible`, `invisibleRange`, `invisibleDayEnable`, `invisibleDay` (7 booleans, Sun–Sat).
+
+The response includes the merged full config and a new `updatedAt`; the browser applies it on the next sync.

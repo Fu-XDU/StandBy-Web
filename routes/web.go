@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"net/http"
 	"path/filepath"
 	"strings"
 
@@ -78,6 +79,6 @@ func webRoutesV1(rg *gin.RouterGroup) {
 		}
 
 		// 非 /v1/web 路径，返回 404
-		c.JSON(404, gin.H{"error": "Not Found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
 	})
 }

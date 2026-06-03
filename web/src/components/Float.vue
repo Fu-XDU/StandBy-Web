@@ -3,18 +3,18 @@
     <div>向下滑动</div>
     <div>Swipe Down</div>
   </div>
-  <time v-if="digits.length > 0" class="font" :style="{ opacity: isInvisible ? 0 : 1 }">
-    <span :class="['digit', 'digit-0']">
+  <time v-if="digits.length > 0" class="font">
+    <span :class="['digit', 'digit-0']" :style="{ opacity: displayOpacity(brightness) }">
       {{ digits[0] }}
     </span>
-    <span :class="['digit', 'digit-1']">
+    <span :class="['digit', 'digit-1']" :style="{ opacity: displayOpacity(brightness) }">
       {{ digits[1] }}
     </span>
-    <span class="colon">:</span>
-    <span :class="['digit', 'digit-2']">
+    <span class="colon" :style="{ opacity: displayOpacity(colonOpacity) }">:</span>
+    <span :class="['digit', 'digit-2']" :style="{ opacity: displayOpacity(brightness) }">
       {{ digits[2] }}
     </span>
-    <span :class="['digit', 'digit-3']">
+    <span :class="['digit', 'digit-3']" :style="{ opacity: displayOpacity(brightness) }">
       {{ digits[3] }}
     </span>
   </time>
@@ -34,6 +34,19 @@
         <div class="color-dot"
              :style="{ backgroundImage: `linear-gradient(to right, ${color[0]} 50%, ${color[1]} 50%)` }"/>
       </div>
+    </div>
+  </div>
+  <div class="brightness-panel">
+    <div class="brightness-row">
+      <span class="brightness-label">亮度</span>
+      <el-slider
+          v-model="brightnessPercent"
+          :min="0"
+          :max="100"
+          :show-tooltip="true"
+          class="brightness-slider"
+      />
+      <span class="brightness-value">{{ brightnessPercent }}%</span>
     </div>
   </div>
   <div style="display: flex; flex-direction: row; align-items: center; padding-top: 1vh">
@@ -107,6 +120,10 @@
       />
     </div>
   </div>
+  <div class="device-id-row">
+    <span class="device-id-label">设备 ID</span>
+    <code class="device-id-value" :title="deviceId">{{ deviceId }}</code>
+  </div>
 
   <div style="padding-bottom: 10vh"></div>
   <footer class="footer">
@@ -119,8 +136,12 @@
 
 <script setup lang="ts">
 import {useTime} from '@/composables/useTime'
-import {onBeforeUnmount, onMounted, ref} from 'vue'
-import {useLocalStorageSync} from '@/composables/useLocalStorageSync'
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {clampOpacity, colonOpacityFromBrightness} from '@/config/floatConfig'
+import {useFloatConfig} from '@/composables/useFloatConfig'
+import {getOrCreateDeviceId} from '@/composables/useRemoteDevice'
+
+const deviceId = getOrCreateDeviceId()
 
 const repoUrl = __REPO_URL__
 const commitHash = __COMMIT_HASH__
@@ -190,21 +211,32 @@ const onVisibilityChange = () => {
   }
 }
 
-const autoNightMode = ref(false)
-const nightModeRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
+const {
+  autoNightMode,
+  nightModeRange,
+  autoInvisible,
+  invisibleRange,
+  invisibleDayEnable,
+  invisibleDay,
+  selectedColorIndex,
+  brightness,
+} = useFloatConfig()
 
-const autoInvisible = ref(false)
-const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
-const invisibleDayEnable = ref(false)
-const invisibleDay = ref([false, false, false, false, false, false, false])
 const weekLabels = ref(['日', '一', '二', '三', '四', '五', '六'])
 
-const selectedColorIndex = ref(0)
-const selectedColorIndex_STORAGE_KEY = 'selectedColorIndex'
+const displayOpacity = (opacity: number) => (isInvisible.value ? 0 : clampOpacity(opacity))
+
+const colonOpacity = computed(() => colonOpacityFromBrightness(brightness.value))
+
+const brightnessPercent = computed({
+  get: () => Math.round(clampOpacity(brightness.value) * 100),
+  set: (percent: number) => {
+    brightness.value = clampOpacity(percent / 100)
+  },
+})
 
 const setColors = (index: number) => {
   selectedColorIndex.value = index
-  localStorage.setItem(selectedColorIndex_STORAGE_KEY, selectedColorIndex.value.toString())
   if (isNightMode.value) {
     return
   }
@@ -239,10 +271,6 @@ const timerRoutine = () => {
 const setToLightMode = () => {
   if (!isNightMode.value) return
   isNightMode.value = false
-  const savedIndex = localStorage.getItem(selectedColorIndex_STORAGE_KEY)
-  if (savedIndex !== null) {
-    selectedColorIndex.value = parseInt(savedIndex)
-  }
   setColors(selectedColorIndex.value)
 }
 
@@ -288,13 +316,11 @@ const isInvisibleTime = () => {
   return invisibleDay.value[new Date().getDay()] || checkBetweenTime(invisibleStartAt, invisibleEndAt);
 }
 
-onMounted(() => {
-  useLocalStorageSync({autoNightMode, autoInvisible, invisibleDayEnable})
-  useLocalStorageSync({nightModeRange, invisibleRange}, {
-    parser: (arr: string[]) => arr.map((s) => new Date(s)), deep: true
-  })
-  useLocalStorageSync({invisibleDay}, {deep: true})
+watch(selectedColorIndex, (index) => {
+  setColors(index)
+}, {immediate: true})
 
+onMounted(() => {
   startMinuteAlignedSchedule()
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
@@ -355,8 +381,41 @@ const checkBetweenTime = (start: Date, end: Date) => {
   color: var(--color-colon);
   z-index: 2;
   transform: translateY(-3vw) scale(1.1) rotate(2deg);
-  opacity: 0.98;
-  /*backdrop-filter: blur(10px);*/
+}
+
+.brightness-panel {
+  width: min(92vw, 520px);
+  margin-top: 2vh;
+  padding: 1vh 2vw;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.brightness-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.6vh;
+}
+
+.brightness-label {
+  width: 3.2em;
+  font-size: 13px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+.brightness-slider {
+  flex: 1;
+}
+
+.brightness-value {
+  width: 3em;
+  font-size: 12px;
+  color: #888;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .digit-2 {
@@ -444,6 +503,29 @@ const checkBetweenTime = (start: Date, end: Date) => {
   box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: transform 0.2s ease;
+}
+
+.device-id-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  padding-top: 1vh;
+  max-width: 92vw;
+}
+
+.device-id-label {
+  font-size: 13px;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.device-id-value {
+  font-size: 12px;
+  color: #8ab4f8;
+  word-break: break-all;
+  user-select: all;
 }
 
 .footer {
