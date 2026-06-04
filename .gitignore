@@ -40,3 +40,6 @@ package-lock.json
 *.sw?
 
 *.tsbuildinfo
+/assets/
+/bin/
+/data/

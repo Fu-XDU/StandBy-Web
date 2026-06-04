@@ -30,4 +30,12 @@ export default defineConfig({
   },
   // 相对 base：构建产物可在任意反向代理前缀下访问（如 /、/standby/、/clock/）
   base: './',
+  server: {
+    proxy: {
+      '/v1': {
+        target: 'http://127.0.0.1:1423',
+        changeOrigin: true,
+      },
+    },
+  },
 })

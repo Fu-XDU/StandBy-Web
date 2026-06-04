@@ -1,0 +1,8 @@
+version: '3.5'
+services:
+  standby_web:
+    image: fuming/standby_web:latest
+    container_name: StandBy_Web
+    restart: always
+    ports:
+      - "1423:1423"
