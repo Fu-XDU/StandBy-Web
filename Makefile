@@ -62,8 +62,4 @@ clean:
 	@rm -rf "$(BACKEND_OUT)" "$(WEB_ASSETS_DIR)"/*
 
 docker:
-        echo $PATH; \
-        which docker; \
-        ls -l /usr/bin/docker; \
-        docker version; \
 	docker build -t $(IMG_NAME):$(VERSION) -t $(IMG_NAME):latest -f Dockerfile .
