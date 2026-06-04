@@ -69,5 +69,5 @@ jobs:
       - run:
           name: "Deploy"
           command: |
-            docker-compose -f /root/docker/standby-web/docker-compose.yaml down
-            docker-compose -f /root/docker/standby-web/docker-compose.yaml up -d
+            docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml down
+            docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml up -d
