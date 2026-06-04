@@ -59,7 +59,8 @@ jobs:
             echo "Current shell: $SHELL"
       - run:
           name: "Build docker image"
-          command: | 
+          command: |
+            export PATH="$PATH:/usr/bin:/usr/local/bin"
             make docker
   deploy:
     executor: tencent-cloud-hk
@@ -67,5 +68,6 @@ jobs:
       - run:
           name: "Deploy"
           command: |
+            export PATH="$PATH:/usr/bin:/usr/local/bin"
             docker-compose -f /root/docker/standby-web/docker-compose.yaml down
             docker-compose -f /root/docker/standby-web/docker-compose.yaml up -d
