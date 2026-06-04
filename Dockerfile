@@ -5,8 +5,9 @@ RUN #npm config set registry http://registry.npmmirror.com
 RUN npm install
 
 FROM node:22.20.0-alpine3.22 AS web_builder
+RUN apk add --no-cache git
 WORKDIR /
-COPY web web
+COPY . .
 COPY --from=node_modules_deps_builder /web/node_modules /web/node_modules
 RUN cd web && npm install && npm rebuild && npm run build
 

@@ -50,28 +50,22 @@ jobs:
     executor: tencent-cloud-hk
     steps:
       - run:
-          name: "Setup Node environment"
+          name: "Check tools"
           command: |
             cat ~/.profile >> "$BASH_ENV"
             source "$BASH_ENV"
             echo "Current user: $(whoami)"
             echo "Current dir: $(pwd)"
             echo "Current shell: $SHELL"
-            echo "Node version: $(node -v)"
-            echo "npm version: $(npm -v)"
       - run:
-          name: "Install Dependencies"
+          name: "Build docker image"
           command: | 
-            npm install
-      - run:
-          name: "Build Dist"
-          command: |
-            npm run build
+            make docker
   deploy:
     executor: tencent-cloud-hk
     steps:
       - run:
           name: "Deploy"
           command: |
-            rm -rf /var/opt/circleci/artifacts/standby
-            mv dist /var/opt/circleci/artifacts/standby
+            docker-compose -f /root/docker/standby-web/docker-compose.yaml down
+            docker-compose -f /root/docker/standby-web/docker-compose.yaml up -d
