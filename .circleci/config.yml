@@ -61,6 +61,10 @@ jobs:
           name: "Build docker image"
           command: |
             export PATH="$PATH:/usr/bin:/usr/local/bin"
+            echo $PATH
+            which docker
+            ls -l /usr/bin/docker
+            docker version
             make docker
   deploy:
     executor: tencent-cloud-hk
