@@ -54,6 +54,10 @@ html, body {
   background: #000;
 }
 
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  display: none;
+}
+
 #app {
   width: 100vw;
   height: 100vh;
