@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/Fu-XDU/StandBy-Web"><img src="https://github.com/Fu-XDU/StandBy-Web/blob/main/src/assets/logo.png?raw=true" alt="standby-web" width="200"></a>
+  <a href="https://github.com/Fu-XDU/StandBy-Web"><img src="https://github.com/Fu-XDU/StandBy-Web/blob/main/web/src/assets/logo.png?raw=true" alt="standby-web" width="200"></a>
   <br>
 Standby Web
   <br>
@@ -16,7 +16,7 @@ Standby Web
 
 ## Screenshot
 
-![Float](Screenshot/Float.png)
+![Float](web/Screenshot/Float.png)
 
 ## See Also
 
