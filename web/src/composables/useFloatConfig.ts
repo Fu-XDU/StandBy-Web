@@ -1,4 +1,4 @@
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useLocalStorageSync } from '@/composables/useLocalStorageSync'
 import { usePageRemoteSync } from '@/composables/usePageRemoteSync'
 import {
@@ -17,8 +17,16 @@ const autoInvisible = ref(false)
 const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 0)])
 const invisibleDayEnable = ref(false)
 const invisibleDay = ref([false, false, false, false, false, false, false])
-const selectedColorIndex = ref(0)
+const clockStyle = ref('float')
+const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0 })
 const brightness = ref(1)
+
+const selectedColorIndex = computed({
+  get: () => colorIndexMap.value[clockStyle.value] ?? 0,
+  set: (val: number) => {
+    colorIndexMap.value = { ...colorIndexMap.value, [clockStyle.value]: val }
+  },
+})
 
 let floatConfigInitialized = false
 let applyingRemote = false
@@ -36,9 +44,17 @@ const toSnapshot = (): FloatConfigPayload => ({
   invisibleRange: invisibleRange.value.map((d) => d.toISOString()),
   invisibleDayEnable: invisibleDayEnable.value,
   invisibleDay: [...invisibleDay.value],
-  selectedColorIndex: selectedColorIndex.value,
+  clockStyle: clockStyle.value,
+  colorIndexMap: { ...colorIndexMap.value },
   brightness: brightness.value,
 })
+
+function equalIntMap(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every((k) => b[k] === a[k])
+}
 
 const applyFieldByField = (config: FloatConfigPayload) => {
   const patch: FloatConfigPatch = {}
@@ -63,8 +79,9 @@ const applyFieldByField = (config: FloatConfigPayload) => {
   }
   const dayChanged = config.invisibleDay.some((v, i) => invisibleDay.value[i] !== v)
   if (dayChanged) patch.invisibleDay = config.invisibleDay
-  if (selectedColorIndex.value !== config.selectedColorIndex) {
-    patch.selectedColorIndex = config.selectedColorIndex
+  if (clockStyle.value !== config.clockStyle) patch.clockStyle = config.clockStyle
+  if (!equalIntMap(colorIndexMap.value, config.colorIndexMap)) {
+    patch.colorIndexMap = config.colorIndexMap
   }
   const b = clampOpacity(config.brightness)
   if (Math.abs(brightness.value - b) >= 1e-6) patch.brightness = b
@@ -85,7 +102,8 @@ const applyPatchToRefs = (patch: FloatConfigPatch) => {
   if (patch.invisibleDay !== undefined) {
     for (let i = 0; i < 7; i++) invisibleDay.value[i] = patch.invisibleDay[i]
   }
-  if (patch.selectedColorIndex !== undefined) selectedColorIndex.value = patch.selectedColorIndex
+  if (patch.clockStyle !== undefined) clockStyle.value = patch.clockStyle
+  if (patch.colorIndexMap !== undefined) colorIndexMap.value = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) brightness.value = clampOpacity(patch.brightness)
 }
 
@@ -109,18 +127,41 @@ const bumpUpdatedAt = () => {
   writeFloatUpdatedAt(Date.now())
 }
 
+function migrateOldSelectedColorIndex() {
+  const oldRaw = localStorage.getItem('selectedColorIndex')
+  if (oldRaw === null) return
+  try {
+    const n = JSON.parse(oldRaw)
+    if (typeof n === 'number' && Number.isFinite(n)) {
+      colorIndexMap.value = { ...colorIndexMap.value, float: n }
+    }
+  } catch { /* ignore */ }
+  localStorage.removeItem('selectedColorIndex')
+}
+
+function migrateOldClockStyle() {
+  const old = localStorage.getItem('standby_clock_style')
+  if (old === null) return
+  clockStyle.value = old
+  localStorage.removeItem('standby_clock_style')
+}
+
 function initFloatConfig() {
   useLocalStorageSync({ autoNightMode, autoInvisible, invisibleDayEnable })
   useLocalStorageSync({ nightModeRange, invisibleRange }, dateRangeOptions)
   useLocalStorageSync({ invisibleDay }, { deep: true })
-  useLocalStorageSync('selectedColorIndex', selectedColorIndex, {
+  useLocalStorageSync('clockStyle', clockStyle)
+  useLocalStorageSync('colorIndexMap', colorIndexMap, {
     parser: (val: unknown) => {
-      if (typeof val === 'number' && Number.isFinite(val)) return val
-      const n = parseInt(String(val), 10)
-      return Number.isFinite(n) ? n : 0
+      if (val && typeof val === 'object' && !Array.isArray(val)) return val as Record<string, number>
+      return { float: 0, numerical: 0 }
     },
+    deep: true,
   })
   useLocalStorageSync('brightness', brightness)
+
+  migrateOldSelectedColorIndex()
+  migrateOldClockStyle()
 
   onMounted(() => {
     nextTick(() => {
@@ -136,7 +177,8 @@ function initFloatConfig() {
       invisibleRange,
       invisibleDayEnable,
       invisibleDay,
-      selectedColorIndex,
+      clockStyle,
+      colorIndexMap,
       brightness,
     ],
     () => {
@@ -162,6 +204,8 @@ export function useFloatConfig() {
     invisibleRange,
     invisibleDayEnable,
     invisibleDay,
+    clockStyle,
+    colorIndexMap,
     selectedColorIndex,
     brightness,
   }

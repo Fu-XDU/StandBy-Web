@@ -1,6 +1,26 @@
 <script setup lang="ts">
-import {onMounted, onUnmounted, useTemplateRef} from 'vue'
-import Float from './components/Float.vue'
+import {computed, markRaw, onMounted, onUnmounted, useTemplateRef} from 'vue'
+import ClockLayout from './components/ClockLayout.vue'
+import Float, {floatColors, floatNightModeColors} from './components/Float.vue'
+import Numerical, {numericalColors, numericalNightModeColors} from './components/Numerical.vue'
+import {useClockStyle} from '@/composables/useClockStyle'
+
+const {clockStyle} = useClockStyle()
+
+const styleConfigs = {
+  float: {
+    component: markRaw(Float),
+    colors: floatColors,
+    nightModeColors: floatNightModeColors,
+  },
+  numerical: {
+    component: markRaw(Numerical),
+    colors: numericalColors,
+    nightModeColors: numericalNightModeColors,
+  },
+} as const
+
+const currentStyle = computed(() => styleConfigs[clockStyle.value as keyof typeof styleConfigs] ?? styleConfigs.float)
 
 const clockRef = useTemplateRef('clock')
 
@@ -41,7 +61,11 @@ onUnmounted(() => {
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <main id="app">
     <div ref="clock" class="clock">
-      <Float/>
+      <ClockLayout :colors="currentStyle.colors" :night-mode-colors="currentStyle.nightModeColors">
+        <template #default="slotProps">
+          <component :is="currentStyle.component" v-bind="slotProps"/>
+        </template>
+      </ClockLayout>
     </div>
   </main>
 </template>

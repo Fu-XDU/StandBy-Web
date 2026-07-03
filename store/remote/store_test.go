@@ -13,7 +13,8 @@ func sampleFloatConfig() *FloatPageConfig {
 		InvisibleRange:     []string{"2025-01-01T00:00:00.000Z", "2025-01-01T06:00:00.000Z"},
 		InvisibleDayEnable: false,
 		InvisibleDay:       []bool{false, false, false, false, false, false, false},
-		SelectedColorIndex: 2,
+		ClockStyle:         "float",
+		ColorIndexMap:      map[string]int{"float": 2, "numerical": 0},
 		Brightness:         1,
 	}
 }
@@ -40,7 +41,7 @@ func TestSyncPage_timestampMerge(t *testing.T) {
 	}
 
 	updated := *client
-	updated.SelectedColorIndex = 5
+	updated.ColorIndexMap = map[string]int{"float": 5, "numerical": 0}
 	r3, err := s.SyncPage(deviceID, pageFloat, 200, &updated)
 	if err != nil {
 		t.Fatal(err)
@@ -72,11 +73,11 @@ func TestPatchPageRemote_partialFields(t *testing.T) {
 	}
 
 	brightness := 0.4
-	colorIndex := 7
+	colorMap := map[string]int{"float": 7, "numerical": 3}
 	before := time.Now().UnixMilli()
 	state, err := s.PatchPageRemote(deviceID, pageFloat, &FloatPageConfigPatch{
-		Brightness:         &brightness,
-		SelectedColorIndex: &colorIndex,
+		Brightness:    &brightness,
+		ColorIndexMap: &colorMap,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +85,7 @@ func TestPatchPageRemote_partialFields(t *testing.T) {
 	if state.UpdatedAt < before {
 		t.Fatal("patch timestamp should be current")
 	}
-	if !floatEqual(state.Config.Brightness, 0.4) || state.Config.SelectedColorIndex != 7 {
+	if !floatEqual(state.Config.Brightness, 0.4) || state.Config.ColorIndexMap["float"] != 7 {
 		t.Fatalf("unexpected patch result: %+v", state.Config)
 	}
 	if state.Config.AutoNightMode != client.AutoNightMode {
@@ -95,7 +96,7 @@ func TestPatchPageRemote_partialFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Action != "apply_server" || r.Config.SelectedColorIndex != 7 {
+	if r.Action != "apply_server" || r.Config.ColorIndexMap["float"] != 7 {
 		t.Fatalf("expected patched config on sync: %+v", r)
 	}
 }
@@ -126,11 +127,11 @@ func TestValidateFloatConfig_ranges(t *testing.T) {
 	}
 	cfg.Brightness = 1
 
-	cfg.SelectedColorIndex = 14
+	cfg.ColorIndexMap = map[string]int{"float": 100}
 	if validateFloatConfig(cfg) {
-		t.Fatal("color index 14 should be invalid")
+		t.Fatal("color index 100 should be invalid")
 	}
-	cfg.SelectedColorIndex = 0
+	cfg.ColorIndexMap = map[string]int{"float": 0}
 
 	cfg.NightModeRange = []string{"not-a-time", "2025-01-01T06:00:00.000Z"}
 	if validateFloatConfig(cfg) {
@@ -168,7 +169,7 @@ func TestEqualFloatConfig_fieldByField(t *testing.T) {
 	if !EqualFloatConfig(a, b) {
 		t.Fatal("expected equal configs")
 	}
-	b.SelectedColorIndex = 3
+	b.ColorIndexMap = map[string]int{"float": 3}
 	if EqualFloatConfig(a, b) {
 		t.Fatal("expected different configs")
 	}

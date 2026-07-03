@@ -6,32 +6,34 @@ import (
 )
 
 const (
-	floatColorIndexMin = 0
-	floatColorIndexMax = 13
+	colorIndexMin = 0
+	colorIndexMax = 99
 )
 
-// FloatPageConfig 与前端 Float 钟表配置字段一一对应。
+// FloatPageConfig 与前端钟表配置字段一一对应。
 type FloatPageConfig struct {
-	AutoNightMode      bool     `json:"autoNightMode"`
-	NightModeRange     []string `json:"nightModeRange"`
-	AutoInvisible      bool     `json:"autoInvisible"`
-	InvisibleRange     []string `json:"invisibleRange"`
-	InvisibleDayEnable bool     `json:"invisibleDayEnable"`
-	InvisibleDay       []bool   `json:"invisibleDay"`
-	SelectedColorIndex int      `json:"selectedColorIndex"`
-	Brightness         float64  `json:"brightness"`
+	AutoNightMode      bool           `json:"autoNightMode"`
+	NightModeRange     []string       `json:"nightModeRange"`
+	AutoInvisible      bool           `json:"autoInvisible"`
+	InvisibleRange     []string       `json:"invisibleRange"`
+	InvisibleDayEnable bool           `json:"invisibleDayEnable"`
+	InvisibleDay       []bool         `json:"invisibleDay"`
+	ClockStyle         string         `json:"clockStyle"`
+	ColorIndexMap      map[string]int `json:"colorIndexMap"`
+	Brightness         float64        `json:"brightness"`
 }
 
 // FloatPageConfigPatch 仅包含需要远程修改的字段（指针非 nil 表示要更新）。
 type FloatPageConfigPatch struct {
-	AutoNightMode      *bool     `json:"autoNightMode"`
-	NightModeRange     *[]string `json:"nightModeRange"`
-	AutoInvisible      *bool     `json:"autoInvisible"`
-	InvisibleRange     *[]string `json:"invisibleRange"`
-	InvisibleDayEnable *bool     `json:"invisibleDayEnable"`
-	InvisibleDay       *[]bool   `json:"invisibleDay"`
-	SelectedColorIndex *int      `json:"selectedColorIndex"`
-	Brightness         *float64  `json:"brightness"`
+	AutoNightMode      *bool            `json:"autoNightMode"`
+	NightModeRange     *[]string        `json:"nightModeRange"`
+	AutoInvisible      *bool            `json:"autoInvisible"`
+	InvisibleRange     *[]string        `json:"invisibleRange"`
+	InvisibleDayEnable *bool            `json:"invisibleDayEnable"`
+	InvisibleDay       *[]bool          `json:"invisibleDay"`
+	ClockStyle         *string          `json:"clockStyle"`
+	ColorIndexMap      *map[string]int  `json:"colorIndexMap"`
+	Brightness         *float64         `json:"brightness"`
 }
 
 func (p *FloatPageConfigPatch) IsEmpty() bool {
@@ -44,7 +46,8 @@ func (p *FloatPageConfigPatch) IsEmpty() bool {
 		p.InvisibleRange == nil &&
 		p.InvisibleDayEnable == nil &&
 		p.InvisibleDay == nil &&
-		p.SelectedColorIndex == nil &&
+		p.ClockStyle == nil &&
+		p.ColorIndexMap == nil &&
 		p.Brightness == nil
 }
 
@@ -56,7 +59,8 @@ func defaultFloatConfig() *FloatPageConfig {
 		InvisibleRange:     []string{"2025-01-01T00:00:00.000Z", "2025-01-01T06:00:00.000Z"},
 		InvisibleDayEnable: false,
 		InvisibleDay:       []bool{false, false, false, false, false, false, false},
-		SelectedColorIndex: 0,
+		ClockStyle:         "float",
+		ColorIndexMap:      map[string]int{"float": 0, "numerical": 0},
 		Brightness:         1,
 	}
 }
@@ -81,8 +85,11 @@ func applyPatch(base *FloatPageConfig, patch *FloatPageConfigPatch) *FloatPageCo
 	if patch.InvisibleDay != nil {
 		out.InvisibleDay = append([]bool(nil), (*patch.InvisibleDay)...)
 	}
-	if patch.SelectedColorIndex != nil {
-		out.SelectedColorIndex = *patch.SelectedColorIndex
+	if patch.ClockStyle != nil {
+		out.ClockStyle = *patch.ClockStyle
+	}
+	if patch.ColorIndexMap != nil {
+		out.ColorIndexMap = cloneIntMap(*patch.ColorIndexMap)
 	}
 	if patch.Brightness != nil {
 		out.Brightness = *patch.Brightness
@@ -100,7 +107,10 @@ func validatePatch(patch *FloatPageConfigPatch) error {
 	if patch.InvisibleDay != nil && !validateInvisibleWeek(*patch.InvisibleDay) {
 		return ErrInvalidConfig
 	}
-	if patch.SelectedColorIndex != nil && !colorIndexInRange(*patch.SelectedColorIndex) {
+	if patch.ClockStyle != nil && !validateClockStyle(*patch.ClockStyle) {
+		return ErrInvalidConfig
+	}
+	if patch.ColorIndexMap != nil && !validateColorIndexMap(*patch.ColorIndexMap) {
 		return ErrInvalidConfig
 	}
 	if patch.Brightness != nil && !brightnessInRange(*patch.Brightness) {
@@ -151,7 +161,8 @@ func EqualFloatConfig(a, b *FloatPageConfig) bool {
 		equalStringSlice(a.InvisibleRange, b.InvisibleRange) &&
 		a.InvisibleDayEnable == b.InvisibleDayEnable &&
 		equalBoolSlice(a.InvisibleDay, b.InvisibleDay) &&
-		a.SelectedColorIndex == b.SelectedColorIndex &&
+		a.ClockStyle == b.ClockStyle &&
+		equalIntMap(a.ColorIndexMap, b.ColorIndexMap) &&
 		floatEqual(a.Brightness, b.Brightness)
 }
 
@@ -206,6 +217,7 @@ func cloneFloatConfig(c *FloatPageConfig) *FloatPageConfig {
 	cp.NightModeRange = append([]string(nil), c.NightModeRange...)
 	cp.InvisibleRange = append([]string(nil), c.InvisibleRange...)
 	cp.InvisibleDay = append([]bool(nil), c.InvisibleDay...)
+	cp.ColorIndexMap = cloneIntMap(c.ColorIndexMap)
 	return &cp
 }
 
@@ -216,10 +228,43 @@ func validateFloatConfig(c *FloatPageConfig) bool {
 	return validateTimeRange(c.NightModeRange) &&
 		validateTimeRange(c.InvisibleRange) &&
 		validateInvisibleWeek(c.InvisibleDay) &&
-		colorIndexInRange(c.SelectedColorIndex) &&
+		validateClockStyle(c.ClockStyle) &&
+		validateColorIndexMap(c.ColorIndexMap) &&
 		brightnessInRange(c.Brightness)
 }
 
-func colorIndexInRange(i int) bool {
-	return i >= floatColorIndexMin && i <= floatColorIndexMax
+func validateClockStyle(s string) bool {
+	return len(s) > 0 && len(s) <= 32
+}
+
+func validateColorIndexMap(m map[string]int) bool {
+	for _, v := range m {
+		if v < colorIndexMin || v > colorIndexMax {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneIntMap(m map[string]int) map[string]int {
+	if m == nil {
+		return nil
+	}
+	cp := make(map[string]int, len(m))
+	for k, v := range m {
+		cp[k] = v
+	}
+	return cp
+}
+
+func equalIntMap(a, b map[string]int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
 }

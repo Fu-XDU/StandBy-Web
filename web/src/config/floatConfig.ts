@@ -10,7 +10,8 @@ export interface FloatConfigPayload {
   invisibleRange: string[]
   invisibleDayEnable: boolean
   invisibleDay: boolean[]
-  selectedColorIndex: number
+  clockStyle: string
+  colorIndexMap: Record<string, number>
   brightness: number
 }
 
@@ -44,6 +45,13 @@ function equalBoolSlice(a: boolean[], b: boolean[]): boolean {
   return a.every((v, i) => v === b[i])
 }
 
+function equalIntMap(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every((k) => b[k] === a[k])
+}
+
 /** 逐字段比较，避免 JSON 字符串比较 */
 export function equalFloatConfig(a: FloatConfigPayload, b: FloatConfigPayload): boolean {
   return (
@@ -53,7 +61,8 @@ export function equalFloatConfig(a: FloatConfigPayload, b: FloatConfigPayload): 
     equalStringSlice(a.invisibleRange, b.invisibleRange) &&
     a.invisibleDayEnable === b.invisibleDayEnable &&
     equalBoolSlice(a.invisibleDay, b.invisibleDay) &&
-    a.selectedColorIndex === b.selectedColorIndex &&
+    a.clockStyle === b.clockStyle &&
+    equalIntMap(a.colorIndexMap, b.colorIndexMap) &&
     floatEqual(a.brightness, b.brightness)
   )
 }
@@ -63,14 +72,15 @@ export function applyFloatConfigPatch(
   current: FloatConfigPayload,
   patch: FloatConfigPatch,
 ): FloatConfigPayload {
-  const next = { ...current, invisibleDay: [...current.invisibleDay] }
+  const next = { ...current, invisibleDay: [...current.invisibleDay], colorIndexMap: { ...current.colorIndexMap } }
   if (patch.autoNightMode !== undefined) next.autoNightMode = patch.autoNightMode
   if (patch.nightModeRange !== undefined) next.nightModeRange = [...patch.nightModeRange]
   if (patch.autoInvisible !== undefined) next.autoInvisible = patch.autoInvisible
   if (patch.invisibleRange !== undefined) next.invisibleRange = [...patch.invisibleRange]
   if (patch.invisibleDayEnable !== undefined) next.invisibleDayEnable = patch.invisibleDayEnable
   if (patch.invisibleDay !== undefined) next.invisibleDay = [...patch.invisibleDay]
-  if (patch.selectedColorIndex !== undefined) next.selectedColorIndex = patch.selectedColorIndex
+  if (patch.clockStyle !== undefined) next.clockStyle = patch.clockStyle
+  if (patch.colorIndexMap !== undefined) next.colorIndexMap = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) next.brightness = clampOpacity(patch.brightness)
   return next
 }
