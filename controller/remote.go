@@ -106,7 +106,7 @@ func RemoteGetConfig(c *gin.Context) {
 
 type patchConfigRequest struct {
 	DeviceID string `json:"deviceId" binding:"required"`
-	PageID   string `json:"pageId" binding:"required"`
+	PageID   string `json:"pageId"`
 	remote.FloatPageConfigPatch
 }
 
@@ -120,6 +120,9 @@ func RemotePatchConfig(c *gin.Context) {
 	if !deviceIDPattern.MatchString(req.DeviceID) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": remote.ErrInvalidDeviceID.Error()})
 		return
+	}
+	if req.PageID == "" {
+		req.PageID = "float"
 	}
 	if !pageIDPattern.MatchString(req.PageID) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page id"})
