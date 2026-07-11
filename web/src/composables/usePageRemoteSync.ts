@@ -7,6 +7,13 @@ type GetSnapshot<T> = () => T
 type ApplySnapshot<T> = (config: T, updatedAt: number) => void
 type GetUpdatedAt = () => number
 
+export interface RemotePushHandlers {
+  schedulePush: () => void
+  cancelPush: () => void
+  startSchedule: () => void
+  stopSchedule: () => void
+}
+
 async function syncPage<T>(
   deviceId: string,
   pageId: RemotePageId,
@@ -48,14 +55,34 @@ export function usePageRemoteSync<T>(
   getSnapshot: GetSnapshot<T>,
   applySnapshot: ApplySnapshot<T>,
   getUpdatedAt: GetUpdatedAt,
+  options?: {
+    pushDebounceMs?: number
+    isSyncEnabled?: () => boolean
+    onPushReady?: (handlers: RemotePushHandlers) => void
+  },
 ): void {
-  const deviceId = getOrCreateDeviceId()
+  const pushDebounceMs = options?.pushDebounceMs ?? 300
   let stopSchedule: (() => void) | undefined
   let syncing = false
+  let pushDebounceTimer: number | undefined
+  let pendingPush = false
+
+  const cancelPush = () => {
+    if (pushDebounceTimer !== undefined) {
+      clearTimeout(pushDebounceTimer)
+      pushDebounceTimer = undefined
+    }
+    pendingPush = false
+  }
 
   const runSync = async () => {
-    if (syncing) return
+    if (options?.isSyncEnabled && !options.isSyncEnabled()) return
+    if (syncing) {
+      pendingPush = true
+      return
+    }
     syncing = true
+    const deviceId = getOrCreateDeviceId()
     try {
       const result = await syncPage(deviceId, pageId, getUpdatedAt(), getSnapshot())
       if (result.action === 'apply_server' && result.config !== undefined) {
@@ -67,21 +94,56 @@ export function usePageRemoteSync<T>(
       console.warn(`[remote:${pageId}] sync failed`, e)
     } finally {
       syncing = false
+      if (pendingPush) {
+        pendingPush = false
+        if (!options?.isSyncEnabled || options.isSyncEnabled()) {
+          void runSync()
+        }
+      }
     }
   }
 
-  onMounted(async () => {
-    try {
-      await registerDevice(deviceId)
-    } catch (e) {
-      console.warn('[remote] register failed', e)
-    }
-    stopSchedule = startMinuteAlignedSchedule(() => {
+  const scheduledSync = () => {
+    if (options?.isSyncEnabled && !options.isSyncEnabled()) return
+    void runSync()
+  }
+
+  const schedulePush = () => {
+    if (options?.isSyncEnabled && !options.isSyncEnabled()) return
+    if (pushDebounceTimer !== undefined) clearTimeout(pushDebounceTimer)
+    pushDebounceTimer = window.setTimeout(() => {
+      pushDebounceTimer = undefined
       void runSync()
+    }, pushDebounceMs)
+  }
+
+  const startSchedule = () => {
+    if (stopSchedule) return
+    stopSchedule = startMinuteAlignedSchedule(scheduledSync)
+  }
+
+  const stopScheduleFn = () => {
+    stopSchedule?.()
+    stopSchedule = undefined
+  }
+
+  onMounted(() => {
+    options?.onPushReady?.({
+      schedulePush,
+      cancelPush,
+      startSchedule,
+      stopSchedule: stopScheduleFn,
     })
+    if (options?.isSyncEnabled?.()) {
+      void registerDevice(getOrCreateDeviceId()).catch((e) => {
+        console.warn('[remote] register failed', e)
+      })
+      startSchedule()
+    }
   })
 
   onBeforeUnmount(() => {
-    stopSchedule?.()
+    cancelPush()
+    stopScheduleFn()
   })
 }

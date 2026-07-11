@@ -1,6 +1,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useLocalStorageSync } from '@/composables/useLocalStorageSync'
 import { usePageRemoteSync } from '@/composables/usePageRemoteSync'
+import { wasOpenedViaDeviceIdLink, getOrCreateDeviceId, registerDevice } from '@/composables/useRemoteDevice'
 import {
   clampOpacity,
   equalFloatConfig,
@@ -20,6 +21,7 @@ const invisibleDay = ref([false, false, false, false, false, false, false])
 const clockStyle = ref('float')
 const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0 })
 const brightness = ref(1)
+const remoteControlEnabled = ref(false)
 
 const selectedColorIndex = computed({
   get: () => colorIndexMap.value[clockStyle.value] ?? 0,
@@ -31,6 +33,12 @@ const selectedColorIndex = computed({
 let floatConfigInitialized = false
 let applyingRemote = false
 let hydrated = false
+let scheduleRemotePush: (() => void) | undefined
+let cancelRemotePush: (() => void) | undefined
+let startRemoteSchedule: (() => void) | undefined
+let stopRemoteSchedule: (() => void) | undefined
+
+const isRemoteSyncEnabled = () => remoteControlEnabled.value
 
 const dateRangeOptions = {
   parser: (arr: string[]) => arr.map((s) => new Date(s)),
@@ -159,9 +167,14 @@ function initFloatConfig() {
     deep: true,
   })
   useLocalStorageSync('brightness', brightness)
+  useLocalStorageSync('remoteControlEnabled', remoteControlEnabled)
 
   migrateOldSelectedColorIndex()
   migrateOldClockStyle()
+
+  if (wasOpenedViaDeviceIdLink()) {
+    remoteControlEnabled.value = true
+  }
 
   onMounted(() => {
     nextTick(() => {
@@ -182,13 +195,41 @@ function initFloatConfig() {
       brightness,
     ],
     () => {
-      if (!hydrated || applyingRemote) return
+      if (!hydrated || applyingRemote || !remoteControlEnabled.value) return
       bumpUpdatedAt()
+      scheduleRemotePush?.()
     },
     { deep: true },
   )
 
-  usePageRemoteSync(FLOAT_PAGE_ID, toSnapshot, applySnapshot, readFloatUpdatedAt)
+  watch(remoteControlEnabled, (enabled) => {
+    if (!hydrated) return
+    if (!enabled) {
+      cancelRemotePush?.()
+      stopRemoteSchedule?.()
+      return
+    }
+    void registerDevice(getOrCreateDeviceId()).then(() => {
+      startRemoteSchedule?.()
+      scheduleRemotePush?.()
+    }).catch((e) => {
+      console.warn('[remote] register failed', e)
+    })
+  })
+
+  usePageRemoteSync(FLOAT_PAGE_ID, toSnapshot, applySnapshot, readFloatUpdatedAt, {
+    isSyncEnabled: isRemoteSyncEnabled,
+    onPushReady: ({ schedulePush, cancelPush, startSchedule, stopSchedule }) => {
+      scheduleRemotePush = schedulePush
+      cancelRemotePush = cancelPush
+      startRemoteSchedule = startSchedule
+      stopRemoteSchedule = stopSchedule
+    },
+  })
+}
+
+export function triggerRemoteSync(): void {
+  scheduleRemotePush?.()
 }
 
 export function useFloatConfig() {
@@ -208,5 +249,6 @@ export function useFloatConfig() {
     colorIndexMap,
     selectedColorIndex,
     brightness,
+    remoteControlEnabled,
   }
 }

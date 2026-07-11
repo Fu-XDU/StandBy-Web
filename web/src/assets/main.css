@@ -2,10 +2,23 @@
 
 @font-face {
     font-family: 'SF-Pro-Rounded-Black';
-    src: url('/src/assets/fonts/SF-Pro-Rounded-Black.woff2')
+    src: url('./fonts/SF-Pro-Rounded-Black.woff2')
 }
 
 @font-face {
     font-family: 'AFCamberwell-One-Regular';
-    src: url('/src/assets/fonts/AFCamberwell-One-Regular.otf')
+    src: url('./fonts/AFCamberwell-One-Regular.otf')
+}
+
+html, body, #app {
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+}
+
+/* 触摸屏上禁用文字选中，避免滑动/手势操作时误选 */
+@media (hover: none) and (pointer: coarse) {
+    html, body, #app, #app * {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
 }
