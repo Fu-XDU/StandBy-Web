@@ -7,6 +7,7 @@ import ColorPanel from './components/ColorPanel.vue'
 import SettingsSheet from './components/SettingsSheet.vue'
 import {useGesture} from '@/composables/useGesture'
 import {useClockStyle, CLOCK_TYPES} from '@/composables/useClockStyle'
+import {isFullscreenActive, requestAppFullscreen} from '@/utils/fullscreen'
 
 const {clockStyle} = useClockStyle()
 
@@ -185,9 +186,9 @@ useGesture(rootEl as ReturnType<typeof useTemplateRef<HTMLElement>>, {
 // ── 全屏 ─────────────────────────────────────────────────
 let fullscreenRequested = false
 const tryFullscreen = () => {
-  if (fullscreenRequested || document.fullscreenElement) return
+  if (fullscreenRequested || isFullscreenActive()) return
   fullscreenRequested = true
-  document.documentElement.requestFullscreen?.().catch(() => {})
+  void requestAppFullscreen().catch(() => {})
 }
 
 onMounted(() => {
@@ -273,6 +274,7 @@ html, body {
   height: 100%;
   background: #000;
   overflow: hidden;
+  min-height: 100dvh;
 }
 
 html::-webkit-scrollbar, body::-webkit-scrollbar {
@@ -280,8 +282,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 }
 
 #app {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 .standby-root {

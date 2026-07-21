@@ -36,17 +36,44 @@
         />
       </div>
 
-      <div class="color-row">
-        <div
-            v-for="(color, index) in colors"
-            :key="color[0] + color[1]"
-            class="color-dot-wrapper"
-            :class="{ selected: selectedColorIndex === index }"
-            @click="selectColor(index)"
-        >
-          <div class="color-dot"
-               :style="{ backgroundImage: `linear-gradient(to right, ${color[0]} 50%, ${color[1]} 50%)` }"/>
+      <div class="color-row-wrap">
+        <div class="color-row">
+          <div
+              v-for="(color, index) in colors"
+              :key="color[0] + color[1]"
+              class="color-dot-wrapper"
+              :class="{ selected: selectedColorIndex === index }"
+              @click="selectColor(index)"
+          >
+            <div class="color-dot"
+                 :style="{ backgroundImage: `linear-gradient(to right, ${color[0]} 50%, ${color[1]} 50%)` }"/>
+          </div>
         </div>
+        <button
+            class="fullscreen-btn"
+            type="button"
+            :aria-label="isFullscreen ? '退出全屏' : '全屏'"
+            @pointerdown.stop
+            @touchend.stop.prevent="onFullscreenTap"
+            @click.stop.prevent="onFullscreenTap"
+        >
+          <!-- enter fullscreen -->
+          <svg v-if="!isFullscreen" width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"/>
+            <polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/>
+            <line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+          <!-- exit fullscreen -->
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 14 10 14 10 20"/>
+            <polyline points="20 10 14 10 14 4"/>
+            <line x1="14" y1="10" x2="21" y2="3"/>
+            <line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
@@ -54,10 +81,19 @@
 
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import {clampOpacity} from '@/config/floatConfig'
 import {useFloatConfig} from '@/composables/useFloatConfig'
+import {
+  exitAppFullscreen,
+  isFullscreenActive,
+  isStandaloneDisplay,
+  onFullscreenChange,
+  requestAppFullscreen,
+  supportsNativeFullscreen,
+} from '@/utils/fullscreen'
 
-const props = defineProps<{
+defineProps<{
   colors: string[][]
 }>()
 
@@ -69,11 +105,63 @@ const emit = defineEmits<{
 const {selectedColorIndex, brightness} = useFloatConfig()
 
 const contentVisible = ref(false)
+const isFullscreen = ref(isFullscreenActive())
 let autoCloseTimer: number | undefined
+let stopFullscreenListen: (() => void) | undefined
+let lastFullscreenTapAt = 0
 
 const resetAutoClose = () => {
   if (autoCloseTimer !== undefined) clearTimeout(autoCloseTimer)
   autoCloseTimer = window.setTimeout(() => emit('close'), 5000)
+}
+
+const syncFullscreenState = () => {
+  isFullscreen.value = isFullscreenActive()
+}
+
+const showHomeScreenGuide = async () => {
+  await ElMessageBox.alert(
+    'iPhone / iPad 的浏览器（含 Chrome）无法网页全屏。\n\n请点击底部分享按钮 →「添加到主屏幕」，再从主屏幕打开，即可全屏显示时钟。',
+    '如何全屏显示',
+    {
+      confirmButtonText: '知道了',
+      customClass: 'fullscreen-guide-box',
+    },
+  )
+}
+
+const toggleFullscreen = async () => {
+  resetAutoClose()
+
+  if (isStandaloneDisplay()) {
+    ElMessage.success('当前已是全屏显示')
+    syncFullscreenState()
+    return
+  }
+
+  if (!supportsNativeFullscreen()) {
+    await showHomeScreenGuide()
+    return
+  }
+
+  try {
+    if (isFullscreenActive()) {
+      await exitAppFullscreen()
+    } else {
+      await requestAppFullscreen()
+    }
+  } catch {
+    await showHomeScreenGuide()
+  } finally {
+    syncFullscreenState()
+  }
+}
+
+const onFullscreenTap = () => {
+  const now = Date.now()
+  if (now - lastFullscreenTapAt < 400) return
+  lastFullscreenTapAt = now
+  void toggleFullscreen()
 }
 
 onMounted(() => {
@@ -81,10 +169,12 @@ onMounted(() => {
     contentVisible.value = true
   })
   resetAutoClose()
+  stopFullscreenListen = onFullscreenChange(syncFullscreenState)
 })
 
 onBeforeUnmount(() => {
   if (autoCloseTimer !== undefined) clearTimeout(autoCloseTimer)
+  stopFullscreenListen?.()
 })
 
 const brightnessPercent = computed({
@@ -166,6 +256,15 @@ const selectColor = (index: number) => {
   flex: 1;
 }
 
+.color-row-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .color-row {
   display: flex;
   overflow-x: auto;
@@ -177,12 +276,30 @@ const selectColor = (index: number) => {
   -webkit-backdrop-filter: blur(12px);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
 }
 
 .color-row::-webkit-scrollbar {
   display: none;
+}
+
+.fullscreen-btn {
+  flex-shrink: 0;
+  width: max(40px, 8vw);
+  height: max(40px, 8vw);
+  border-radius: 50%;
+  background: rgba(30, 30, 30, 0.80);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0;
 }
 
 .color-dot-wrapper {

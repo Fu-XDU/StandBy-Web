@@ -1,8 +1,10 @@
 <template>
   <div v-if="digits.length > 0" class="numerical-wrapper" :style="{ opacity: displayOpacity(brightness) }">
-    <time class="numerical-time">{{ digits[0] }}{{ digits[1] }}<span class="numerical-colon">:</span>{{ digits[2] }}{{ digits[3] }}</time>
-    <div class="numerical-side">
-      <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
+    <div class="numerical-inner">
+      <time class="numerical-time">{{ digits[0] }}{{ digits[1] }}<span class="numerical-colon">:</span>{{ digits[2] }}{{ digits[3] }}</time>
+      <div class="numerical-side">
+        <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -55,10 +57,21 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
 <style scoped>
 .numerical-wrapper {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* 内部保持原来的时间 + 日期排布 */
+.numerical-inner {
+  display: flex;
   align-items: flex-start;
   justify-content: center;
   max-width: 100vw;
-  padding: 0 1vw;
+  padding: 0 4vw;
+  margin-bottom: 8vh;
 }
 
 .numerical-time {
