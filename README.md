@@ -22,6 +22,55 @@ Standby Web
 
 [Fu-XDU/StandBy: A minimal Clock application for iPhone / iPad and Mac.](https://github.com/Fu-XDU/StandBy)
 
+## Docker
+
+Image: [`fuming/standby_web`](https://hub.docker.com/r/fuming/standby_web)
+
+### Run
+
+```bash
+docker run -d --name standby-web -p 1423:1423 --restart unless-stopped fuming/standby_web:latest
+```
+
+Then open <http://127.0.0.1:1423/v1/web/>.
+
+### docker-compose
+
+```yaml
+version: "3.5"
+services:
+  standby_web:
+    image: fuming/standby_web:latest
+    container_name: StandBy_Web
+    restart: always
+    ports:
+      - "1423:1423"
+```
+
+```bash
+docker-compose up -d
+```
+
+### Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Latest build from `main` |
+| `<git-sha8>` | Build pinned to the first 8 characters of the git commit |
+
+```bash
+docker pull fuming/standby_web:latest
+docker pull fuming/standby_web:<git-sha8>
+```
+
+### Build locally
+
+```bash
+make docker
+```
+
+This tags `fuming/standby_web:latest` and `fuming/standby_web:<git-sha8>`.
+
 ## Nginx (generic subpath)
 
 The production build uses a relative asset base (`base: './'` in Vite), so you can host the app under any URL prefix. Replace **`YOUR_PREFIX`** in the snippet (e.g. `/standby`, `/clock`) and keep the on-disk layout aligned with the last `try_files` argument.

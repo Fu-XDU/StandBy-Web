@@ -4,6 +4,7 @@ SHELL := /bin/bash
 
 VERSION ?= latest
 IMG_NAME ?= fuming/standby_web
+GIT_COMMIT := $(shell git rev-parse --short=8 HEAD)
 
 BACKEND_OUT ?= bin/server
 WEB_DIR := web
@@ -19,7 +20,7 @@ help:
 	@echo "  start             Build+sync then run server (http://127.0.0.1:1423/v1/web/)"
 	@echo "  dev               Run server (go run) + Vite dev server"
 	@echo "  clean             Remove build artifacts"
-	@echo "  docker            Build image $(IMG_NAME):$(VERSION)"
+	@echo "  docker            Build image $(IMG_NAME):$(VERSION) / latest / $(GIT_COMMIT)"
 
 build-backend:
 	@set -euo pipefail; \
@@ -62,4 +63,4 @@ clean:
 	@rm -rf "$(BACKEND_OUT)" "$(WEB_ASSETS_DIR)"/*
 
 docker:
-	docker build -t $(IMG_NAME):$(VERSION) -t $(IMG_NAME):latest -f Dockerfile .
+	docker build -t $(IMG_NAME):$(VERSION) -t $(IMG_NAME):latest -t $(IMG_NAME):$(GIT_COMMIT) -f Dockerfile .

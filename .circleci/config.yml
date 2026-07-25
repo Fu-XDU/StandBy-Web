@@ -15,6 +15,9 @@ workflows:
       - deploy:
           requires:
             - build
+      - push-dockerhub:
+          requires:
+            - build
 
 jobs:
   clone-or-pull-repo:
@@ -71,3 +74,38 @@ jobs:
           command: |
             docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml down
             docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml up -d
+  push-dockerhub:
+    executor: tencent-cloud-hk
+    steps:
+      - run:
+          name: "Push image to Docker Hub (soft-fail)"
+          command: |
+            set +e
+            cat ~/.profile >> "$BASH_ENV" 2>/dev/null || true
+            source "$BASH_ENV" 2>/dev/null || true
+
+            IMG_NAME="${IMG_NAME:-fuming/standby_web}"
+            GIT_COMMIT="$(git rev-parse --short=8 HEAD)"
+
+            if [ -n "${DOCKERHUB_USERNAME:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+              echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+              if [ $? -ne 0 ]; then
+                echo "Warning: docker login failed (degraded), skip push"
+                exit 0
+              fi
+            else
+              echo "DOCKERHUB_USERNAME / DOCKERHUB_TOKEN not set; relying on existing docker login"
+            fi
+
+            echo "Pushing ${IMG_NAME}:${GIT_COMMIT}..."
+            if ! docker push "${IMG_NAME}:${GIT_COMMIT}"; then
+              echo "Warning: push ${IMG_NAME}:${GIT_COMMIT} failed (degraded)"
+            fi
+
+            echo "Pushing ${IMG_NAME}:latest..."
+            if ! docker push "${IMG_NAME}:latest"; then
+              echo "Warning: push ${IMG_NAME}:latest failed (degraded)"
+            fi
+
+            echo "Docker Hub push finished (failures are non-blocking)"
+            exit 0
