@@ -34,6 +34,14 @@ docker run -d --name standby-web -p 1423:1423 --restart unless-stopped fuming/st
 
 Then open <http://127.0.0.1:1423/v1/web/>.
 
+Remote config is cached under `/etc/standby-web/remote-store.json` inside the container. Mount that directory if you want it to survive container recreation:
+
+```bash
+docker run -d --name standby-web -p 1423:1423 \
+  -v standby-web-config:/etc/standby-web \
+  --restart unless-stopped fuming/standby_web:latest
+```
+
 ### docker-compose
 
 ```yaml
@@ -45,6 +53,11 @@ services:
     restart: always
     ports:
       - "1423:1423"
+    volumes:
+      - standby-web-config:/etc/standby-web
+
+volumes:
+  standby-web-config:
 ```
 
 ```bash
@@ -102,6 +115,7 @@ The clock page registers a random `deviceId` (stored in browser `localStorage` a
 | POST | `/v1/remote/sync` | Full config sync with `updatedAt` |
 | GET | `/v1/remote/config?deviceId=&pageId=float` | Read server config |
 | PATCH | `/v1/remote/config` | Update **only the fields you send** |
+| GET | `/v1/remote/online` | Count devices active in the last 2 hours |
 
 `pageId` for the Float clock is `float`.
 

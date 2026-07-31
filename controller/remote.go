@@ -8,6 +8,7 @@ import (
 	"StandBy-Web/store/remote"
 
 	"github.com/gin-gonic/gin"
+	"github.com/labstack/gommon/log"
 )
 
 var (
@@ -74,6 +75,14 @@ func RemoteSync(c *gin.Context) {
 		}
 		return
 	}
+	switch result.Action {
+	case "store_client":
+		log.Infof("remote: device %s synced config to server", req.DeviceID)
+	case "apply_server":
+		log.Infof("remote: device %s pulled config from server", req.DeviceID)
+	default:
+		log.Infof("remote: device %s synced (%s)", req.DeviceID, result.Action)
+	}
 	c.JSON(http.StatusOK, result)
 }
 
@@ -101,6 +110,7 @@ func RemoteGetConfig(c *gin.Context) {
 		}
 		return
 	}
+	log.Infof("remote: device %s fetched config", deviceID)
 	c.JSON(http.StatusOK, state)
 }
 
@@ -143,5 +153,15 @@ func RemotePatchConfig(c *gin.Context) {
 		}
 		return
 	}
+	log.Infof("remote: device %s config patched by remote control", req.DeviceID)
 	c.JSON(http.StatusOK, state)
+}
+
+// RemoteOnlineStats 返回最近 2 小时内有过远程活动的设备数量。
+func RemoteOnlineStats(c *gin.Context) {
+	count := getRemoteStore().CountOnline(remote.OnlineWindow)
+	c.JSON(http.StatusOK, gin.H{
+		"onlineDevices": count,
+		"windowHours":   int(remote.OnlineWindow.Hours()),
+	})
 }

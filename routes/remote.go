@@ -12,4 +12,5 @@ func addRemoteRoutes(rg *gin.RouterGroup) {
 	remoteGroup.POST("/sync", controller.RemoteSync)
 	remoteGroup.GET("/config", controller.RemoteGetConfig)
 	remoteGroup.PATCH("/config", controller.RemotePatchConfig)
+	remoteGroup.GET("/online", controller.RemoteOnlineStats)
 }

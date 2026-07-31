@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ func sampleFloatConfig() *FloatPageConfig {
 }
 
 func TestSyncPage_timestampMerge(t *testing.T) {
-	s := NewStore()
+	s := NewStoreWithPath("")
 	deviceID := "abcd1234abcd1234abcd1234abcd12"
 	client := sampleFloatConfig()
 
@@ -52,7 +53,7 @@ func TestSyncPage_timestampMerge(t *testing.T) {
 }
 
 func TestPatchPageRemote_requiresRegister(t *testing.T) {
-	s := NewStore()
+	s := NewStoreWithPath("")
 	deviceID := "abcd1234abcd1234abcd1234abcd12"
 	brightness := 0.5
 	_, err := s.PatchPageRemote(deviceID, pageFloat, &FloatPageConfigPatch{Brightness: &brightness})
@@ -62,7 +63,7 @@ func TestPatchPageRemote_requiresRegister(t *testing.T) {
 }
 
 func TestPatchPageRemote_partialFields(t *testing.T) {
-	s := NewStore()
+	s := NewStoreWithPath("")
 	deviceID := "abcd1234abcd1234abcd1234abcd12"
 	client := sampleFloatConfig()
 
@@ -102,7 +103,7 @@ func TestPatchPageRemote_partialFields(t *testing.T) {
 }
 
 func TestPatchPageRemote_emptyPatch(t *testing.T) {
-	s := NewStore()
+	s := NewStoreWithPath("")
 	deviceID := "abcd1234abcd1234abcd1234abcd12"
 	s.Register(deviceID)
 	_, err := s.PatchPageRemote(deviceID, pageFloat, &FloatPageConfigPatch{})
@@ -172,5 +173,41 @@ func TestEqualFloatConfig_fieldByField(t *testing.T) {
 	b.ColorIndexMap = map[string]int{"float": 3}
 	if EqualFloatConfig(a, b) {
 		t.Fatal("expected different configs")
+	}
+}
+
+func TestStore_persistAndReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote-store.json")
+	deviceID := "abcd1234abcd1234abcd1234abcd12"
+	client := sampleFloatConfig()
+
+	s1 := NewStoreWithPath(path)
+	s1.Register(deviceID)
+	if _, err := s1.SyncPage(deviceID, pageFloat, 100, client); err != nil {
+		t.Fatal(err)
+	}
+
+	s2 := NewStoreWithPath(path)
+	state, err := s2.GetPage(deviceID, pageFloat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.UpdatedAt != 100 || state.Config.ColorIndexMap["float"] != 2 {
+		t.Fatalf("unexpected reloaded state: %+v", state)
+	}
+}
+
+func TestCountOnline_last2Hours(t *testing.T) {
+	s := NewStoreWithPath("")
+	active := "abcd1234abcd1234abcd1234abcd12"
+	stale := "bbbb1234bbbb1234bbbb1234bbbb12"
+
+	s.Register(active)
+	s.mu.Lock()
+	s.getOrCreateDeviceLocked(stale).LastSeenAt = time.Now().Add(-3 * time.Hour).UnixMilli()
+	s.mu.Unlock()
+
+	if n := s.CountOnline(OnlineWindow); n != 1 {
+		t.Fatalf("expected 1 online device, got %d", n)
 	}
 }

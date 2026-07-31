@@ -6,3 +6,8 @@ services:
     restart: always
     ports:
       - "1423:1423"
+    volumes:
+      - standby-web-config:/etc/standby-web
+
+volumes:
+  standby-web-config:

@@ -23,6 +23,7 @@ RUN go build -o ./bin/server .
 FROM alpine:3.22
 COPY --from=web_builder /web/dist/ /assets/web/v1/
 COPY --from=builder /app/bin/server /server
-RUN chmod +x server
+RUN chmod +x server && mkdir -p /etc/standby-web
+VOLUME ["/etc/standby-web"]
 EXPOSE 1423
 CMD ["./server"]
