@@ -118,4 +118,11 @@ jobs:
       - run:
           name: "Clean image git_commit tag"
           command: |
+            set +e
+            cat ~/.profile >> "$BASH_ENV" 2>/dev/null || true
+            source "$BASH_ENV" 2>/dev/null || true
+
+            IMG_NAME="${IMG_NAME:-fuming/standby_web}"
+            GIT_COMMIT="$(git rev-parse --short=8 HEAD)"
+
             docker rmi "${IMG_NAME}:${GIT_COMMIT}"
