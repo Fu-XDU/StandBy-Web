@@ -18,6 +18,9 @@ workflows:
       - push-dockerhub:
           requires:
             - build
+      - clean-image:
+          requires:
+            - push-dockerhub
 
 jobs:
   clone-or-pull-repo:
@@ -72,8 +75,8 @@ jobs:
       - run:
           name: "Deploy"
           command: |
-            docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml down
-            docker-compose -f /var/opt/circleci/standby-web/docker-compose.yaml up -d
+            docker-compose -f /var/opt/circleci/docker/standby-web/docker-compose.yaml down
+            docker-compose -f /var/opt/circleci/docker/standby-web/docker-compose.yaml up -d
   push-dockerhub:
     executor: tencent-cloud-hk
     steps:
@@ -109,3 +112,10 @@ jobs:
 
             echo "Docker Hub push finished (failures are non-blocking)"
             exit 0
+  clean-image:
+    executor: tencent-cloud-hk
+    steps:
+      - run:
+          name: "Clean image git_commit tag"
+          command: |
+            docker rmi "${IMG_NAME}:${GIT_COMMIT}"
