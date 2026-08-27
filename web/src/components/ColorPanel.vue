@@ -36,6 +36,42 @@
         />
       </div>
 
+      <!-- 数字时钟专属：长按选择股票行情 -->
+      <div v-if="styleId === 'numerical'" class="stock-panel-box">
+        <div class="stock-panel-top">
+          <span class="stock-panel-title">股票行情展示</span>
+          <span class="stock-panel-count">{{ (numericalStocks || []).length }}/3</span>
+        </div>
+        <div v-if="stockLoadError" class="stock-error-row">
+          <span class="stock-error-msg">{{ stockLoadError }}</span>
+          <button class="retry-btn" type="button" @click="loadStockOptions">重试</button>
+        </div>
+        <el-select
+          v-model="numericalStocks"
+          multiple
+          :multiple-limit="3"
+          placeholder="选择股票/行情 (最多3项)"
+          size="small"
+          class="stock-panel-select"
+          :loading="isLoadingStocks"
+          clearable
+          @change="resetAutoClose"
+          @visible-change="onSelectVisibleChange"
+        >
+          <el-option
+            v-for="item in stockOptionsWithSelected"
+            :key="item.value"
+            :label="item.fullTitle || item.name"
+            :value="item.value"
+          >
+            <div class="stock-option-row">
+              <span class="option-name">{{ item.name }}</span>
+              <span class="option-price">{{ item.price }}</span>
+            </div>
+          </el-option>
+        </el-select>
+      </div>
+
       <div class="color-row-wrap">
         <div class="color-row">
           <div
@@ -84,6 +120,7 @@ import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {clampOpacity} from '@/config/floatConfig'
 import {useFloatConfig} from '@/composables/useFloatConfig'
+import {extractStockItems, fetchGlanceMenu, type StockItem} from '@/composables/useGlanceStocks'
 import {
   exitAppFullscreen,
   isFullscreenActive,
@@ -93,8 +130,9 @@ import {
   supportsNativeFullscreen,
 } from '@/utils/fullscreen'
 
-defineProps<{
+const props = defineProps<{
   colors: string[][]
+  styleId?: string
 }>()
 
 const emit = defineEmits<{
@@ -102,7 +140,7 @@ const emit = defineEmits<{
   'open-settings': []
 }>()
 
-const {selectedColorIndex, brightness} = useFloatConfig()
+const {selectedColorIndex, brightness, numericalStocks} = useFloatConfig()
 
 const contentVisible = ref(false)
 const isFullscreen = ref(isFullscreenActive())
@@ -110,7 +148,59 @@ let autoCloseTimer: number | undefined
 let stopFullscreenListen: (() => void) | undefined
 let lastFullscreenTapAt = 0
 
+// 股票行情选项
+const availableStockOptions = ref<StockItem[]>([])
+const isLoadingStocks = ref(false)
+const stockLoadError = ref<string | null>(null)
+let isSelectDropdownOpen = false
+
+const stockOptionsWithSelected = computed(() => {
+  const map = new Map<string, StockItem>()
+  for (const opt of availableStockOptions.value) {
+    map.set(opt.value, opt)
+  }
+  for (const key of numericalStocks.value || []) {
+    if (!map.has(key)) {
+      map.set(key, {
+        value: key,
+        name: key.replace(/^stocks:|^fx:/, ''),
+        price: '--',
+        fullTitle: key,
+      })
+    }
+  }
+  return Array.from(map.values())
+})
+
+const loadStockOptions = async () => {
+  if (props.styleId !== 'numerical') return
+  isLoadingStocks.value = true
+  stockLoadError.value = null
+  try {
+    const data = await fetchGlanceMenu()
+    availableStockOptions.value = extractStockItems(data.menu)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '网络连接失败'
+    stockLoadError.value = `接口异常 (${msg})`
+  } finally {
+    isLoadingStocks.value = false
+  }
+}
+
+const onSelectVisibleChange = (visible: boolean) => {
+  isSelectDropdownOpen = visible
+  if (visible) {
+    if (autoCloseTimer !== undefined) {
+      clearTimeout(autoCloseTimer)
+      autoCloseTimer = undefined
+    }
+  } else {
+    resetAutoClose()
+  }
+}
+
 const resetAutoClose = () => {
+  if (isSelectDropdownOpen) return
   if (autoCloseTimer !== undefined) clearTimeout(autoCloseTimer)
   autoCloseTimer = window.setTimeout(() => emit('close'), 5000)
 }
@@ -165,6 +255,9 @@ const onFullscreenTap = () => {
 }
 
 onMounted(() => {
+  if (props.styleId === 'numerical') {
+    void loadStockOptions()
+  }
   requestAnimationFrame(() => {
     contentVisible.value = true
   })
@@ -226,7 +319,7 @@ const selectColor = (index: number) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .panel-content.visible {
@@ -254,6 +347,85 @@ const selectColor = (index: number) => {
 
 .brightness-slider {
   flex: 1;
+}
+
+.stock-panel-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  background: rgba(30, 30, 30, 0.80);
+  border-radius: 20px;
+  padding: 10px 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-sizing: border-box;
+}
+
+.stock-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stock-panel-title {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.stock-panel-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.stock-panel-select {
+  width: 100%;
+}
+
+.stock-error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 73, 73, 0.15);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.stock-error-msg {
+  font-size: 11px;
+  color: #ff8a8a;
+}
+
+.retry-btn {
+  font-size: 11px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.stock-option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+}
+
+.option-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.option-price {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .color-row-wrap {

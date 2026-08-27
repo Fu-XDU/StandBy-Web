@@ -22,6 +22,7 @@ const clockStyle = ref('float')
 const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0 })
 const brightness = ref(1)
 const remoteControlEnabled = ref(false)
+const numericalStocks = ref<string[]>([])
 
 const selectedColorIndex = computed({
   get: () => colorIndexMap.value[clockStyle.value] ?? 0,
@@ -55,6 +56,7 @@ const toSnapshot = (): FloatConfigPayload => ({
   clockStyle: clockStyle.value,
   colorIndexMap: { ...colorIndexMap.value },
   brightness: brightness.value,
+  numericalStocks: [...numericalStocks.value],
 })
 
 function equalIntMap(a: Record<string, number>, b: Record<string, number>): boolean {
@@ -93,6 +95,10 @@ const applyFieldByField = (config: FloatConfigPayload) => {
   }
   const b = clampOpacity(config.brightness)
   if (Math.abs(brightness.value - b) >= 1e-6) patch.brightness = b
+  const stocksChanged =
+    (config.numericalStocks || []).length !== numericalStocks.value.length ||
+    (config.numericalStocks || []).some((v, i) => numericalStocks.value[i] !== v)
+  if (stocksChanged) patch.numericalStocks = config.numericalStocks || []
   if (Object.keys(patch).length === 0) return
   applyPatchToRefs(patch)
 }
@@ -113,6 +119,7 @@ const applyPatchToRefs = (patch: FloatConfigPatch) => {
   if (patch.clockStyle !== undefined) clockStyle.value = patch.clockStyle
   if (patch.colorIndexMap !== undefined) colorIndexMap.value = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) brightness.value = clampOpacity(patch.brightness)
+  if (patch.numericalStocks !== undefined) numericalStocks.value = [...patch.numericalStocks]
 }
 
 const applySnapshot = (config: FloatConfigPayload, updatedAt: number) => {
@@ -168,6 +175,7 @@ function initFloatConfig() {
   })
   useLocalStorageSync('brightness', brightness)
   useLocalStorageSync('remoteControlEnabled', remoteControlEnabled)
+  useLocalStorageSync('numericalStocks', numericalStocks, { deep: true })
 
   migrateOldSelectedColorIndex()
   migrateOldClockStyle()
@@ -193,6 +201,7 @@ function initFloatConfig() {
       clockStyle,
       colorIndexMap,
       brightness,
+      numericalStocks,
     ],
     () => {
       if (!hydrated || applyingRemote || !remoteControlEnabled.value) return
@@ -250,5 +259,6 @@ export function useFloatConfig() {
     selectedColorIndex,
     brightness,
     remoteControlEnabled,
+    numericalStocks,
   }
 }

@@ -17,6 +17,7 @@ func sampleFloatConfig() *FloatPageConfig {
 		ClockStyle:         "float",
 		ColorIndexMap:      map[string]int{"float": 2, "numerical": 0},
 		Brightness:         1,
+		NumericalStocks:    []string{"BTCUSDT", "stocks:AAPL"},
 	}
 }
 

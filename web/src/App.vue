@@ -254,6 +254,7 @@ const currentStyleDef = computed(() => currentType.value.styles[styleIndex.value
     <!-- 长按后叠加的颜色面板 -->
     <ColorPanel
         v-if="panelVisible"
+        :style-id="currentStyleDef.id"
         :colors="currentStyleDef.colors"
         @close="closePanel"
         @open-settings="openSettings"
