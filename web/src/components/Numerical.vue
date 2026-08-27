@@ -3,7 +3,20 @@
     <div class="numerical-inner">
       <time class="numerical-time">{{ digits[0] }}{{ digits[1] }}<span class="numerical-colon">:</span>{{ digits[2] }}{{ digits[3] }}</time>
       <div class="numerical-side">
-        <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
+        <div class="numerical-date-row">
+          <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
+        </div>
+        <div v-if="displayedStocks.length > 0" class="numerical-stocks">
+          <div
+            v-for="item in displayedStocks"
+            :key="item.value"
+            class="stock-row"
+            :class="{ 'night-mode': isNightMode }"
+          >
+            <span class="stock-name">{{ item.name }}</span>
+            <span class="stock-price">{{ item.price }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -25,7 +38,9 @@ export const numericalNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 </script>
 
 <script setup lang="ts">
-import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useFloatConfig } from '@/composables/useFloatConfig'
+import { extractStockItems, fetchGlanceMenu, type StockItem } from '@/composables/useGlanceStocks'
 
 defineProps<{
   digits: string[]
@@ -35,6 +50,8 @@ defineProps<{
   isNightMode: boolean
 }>()
 
+const { numericalStocks } = useFloatConfig()
+
 const now = ref(new Date())
 let dateTimer: number | undefined
 
@@ -42,12 +59,93 @@ const updateDate = () => {
   now.value = new Date()
 }
 
+// 股票数据管理
+const stockList = ref<StockItem[]>([])
+let stockTimer: number | undefined
+let isFetching = false
+
+const displayedStocks = computed(() => {
+  if (!numericalStocks.value || numericalStocks.value.length === 0) return []
+  return numericalStocks.value.map((key) => {
+    const found = stockList.value.find((item) => item.value === key)
+    if (found) return found
+    return {
+      value: key,
+      name: key.replace(/^stocks:|^fx:/, ''),
+      price: '--',
+      fullTitle: key,
+    }
+  })
+})
+
+const stopStockTimer = () => {
+  if (stockTimer !== undefined) {
+    clearTimeout(stockTimer)
+    stockTimer = undefined
+  }
+}
+
+const scheduleNextFetch = (delayMs: number) => {
+  stopStockTimer()
+  if (!numericalStocks.value || numericalStocks.value.length === 0 || document.hidden) return
+  stockTimer = window.setTimeout(() => {
+    void fetchStocks()
+  }, delayMs)
+}
+
+const fetchStocks = async () => {
+  if (!numericalStocks.value || numericalStocks.value.length === 0 || isFetching) return
+  isFetching = true
+  try {
+    const data = await fetchGlanceMenu()
+    stockList.value = extractStockItems(data.menu)
+    const interval = Math.max(data.refresh_after_seconds || 3, 3) * 1000
+    scheduleNextFetch(interval)
+  } catch {
+    // 请求失败时不打断，5 秒后重试
+    scheduleNextFetch(5000)
+  } finally {
+    isFetching = false
+  }
+}
+
+const startStockFetch = () => {
+  stopStockTimer()
+  if (numericalStocks.value && numericalStocks.value.length > 0 && !document.hidden) {
+    void fetchStocks()
+  }
+}
+
+const onVisibilityChange = () => {
+  if (document.hidden) {
+    stopStockTimer()
+  } else {
+    startStockFetch()
+  }
+}
+
+watch(
+  () => numericalStocks.value,
+  (newVal) => {
+    if (!newVal || newVal.length === 0) {
+      stopStockTimer()
+      stockList.value = []
+    } else {
+      startStockFetch()
+    }
+  },
+  { deep: true, immediate: true },
+)
+
 onMounted(() => {
   dateTimer = window.setInterval(updateDate, 60_000)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount(() => {
   if (dateTimer !== undefined) clearInterval(dateTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  stopStockTimer()
 })
 
 const dayOfMonth = computed(() => now.value.getDate())
@@ -64,7 +162,7 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   box-sizing: border-box;
 }
 
-/* 内部保持原来的时间 + 日期排布 */
+/* 内部保持时间 + 右侧信息排布 */
 .numerical-inner {
   display: flex;
   align-items: flex-start;
@@ -93,10 +191,17 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
 
 .numerical-side {
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-start;
   margin-left: 5vw;
   padding-top: 9vw;
+  white-space: nowrap;
+}
+
+.numerical-date-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
   white-space: nowrap;
 }
 
@@ -108,6 +213,53 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
 
 .numerical-weekday {
   font-size: 5vw;
+  color: var(--color-0);
+}
+
+.numerical-stocks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8vw;
+  margin-top: 1.8vw;
+  width: 100%;
+  min-width: 24vw;
+  box-sizing: border-box;
+}
+
+.stock-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2vw;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-size: 2.8vw;
+  line-height: 1.25;
+}
+
+.stock-name {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 20vw;
+}
+
+.stock-price {
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stock-row.night-mode .stock-name {
+  color: var(--color-0);
+  opacity: 0.8;
+}
+
+.stock-row.night-mode .stock-price {
   color: var(--color-0);
 }
 </style>

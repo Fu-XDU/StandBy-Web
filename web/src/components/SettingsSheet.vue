@@ -68,6 +68,44 @@
       <div class="divider"/>
 
       <div class="setting-row">
+        <span class="setting-label">股票行情展示（数字时钟）</span>
+        <span class="stock-count-hint">{{ (numericalStocks || []).length }}/3</span>
+      </div>
+      <div class="setting-sub stock-setting-sub">
+        <div v-if="stockLoadError" class="stock-error-box">
+          <span class="stock-error-text">{{ stockLoadError }}</span>
+          <button class="retry-btn" type="button" @click="loadStockOptions">重试</button>
+        </div>
+        <el-select
+          v-model="numericalStocks"
+          multiple
+          :multiple-limit="3"
+          placeholder="选择要展示的股票/行情 (最多3项)"
+          size="small"
+          class="stock-select"
+          :loading="isLoadingStocks"
+          clearable
+        >
+          <el-option
+            v-for="item in stockOptionsWithSelected"
+            :key="item.value"
+            :label="item.fullTitle || item.name"
+            :value="item.value"
+          >
+            <div class="stock-option-row">
+              <span class="option-name">{{ item.name }}</span>
+              <span class="option-price">{{ item.price }}</span>
+            </div>
+          </el-option>
+        </el-select>
+        <p class="stock-hint">
+          选择 0 项时不发起网络请求以节电；选择 1-3 项将在数字时钟日期下方展示。
+        </p>
+      </div>
+
+      <div class="divider"/>
+
+      <div class="setting-row">
         <span class="setting-label">远程控制</span>
         <el-switch
             v-model="remoteControlEnabled"
@@ -108,6 +146,7 @@
 import {computed, onMounted, ref} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {triggerRemoteSync, useFloatConfig} from '@/composables/useFloatConfig'
+import {extractStockItems, fetchGlanceMenu, type StockItem} from '@/composables/useGlanceStocks'
 import {
   buildRemoteControlUrl,
   registerDevice,
@@ -125,6 +164,7 @@ const {
   invisibleDayEnable,
   invisibleDay,
   remoteControlEnabled,
+  numericalStocks,
 } = useFloatConfig()
 const deviceId = useDeviceId()
 const remoteControlUrl = computed(() => buildRemoteControlUrl(deviceId.value))
@@ -136,6 +176,45 @@ const commitHash = __COMMIT_HASH__
 const buildTime = __BUILD_TIME__
 
 const sheetVisible = ref(false)
+
+// 股票行情选项加载
+const availableStockOptions = ref<StockItem[]>([])
+const isLoadingStocks = ref(false)
+const stockLoadError = ref<string | null>(null)
+
+const stockOptionsWithSelected = computed(() => {
+  const map = new Map<string, StockItem>()
+  for (const opt of availableStockOptions.value) {
+    map.set(opt.value, opt)
+  }
+  // 如果已有选择但尚未加载到（或接口故障），补充占位项
+  for (const key of numericalStocks.value || []) {
+    if (!map.has(key)) {
+      map.set(key, {
+        value: key,
+        name: key.replace(/^stocks:|^fx:/, ''),
+        price: '--',
+        fullTitle: key,
+      })
+    }
+  }
+  return Array.from(map.values())
+})
+
+const loadStockOptions = async () => {
+  isLoadingStocks.value = true
+  stockLoadError.value = null
+  try {
+    const data = await fetchGlanceMenu()
+    availableStockOptions.value = extractStockItems(data.menu)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '网络连接失败'
+    stockLoadError.value = `行情接口不可用 (${msg})`
+    ElMessage.warning('无法连接股票数据接口: https://dev.flxdu.cn/glance/api/menu')
+  } finally {
+    isLoadingStocks.value = false
+  }
+}
 
 const copyRemoteUrl = async () => {
   copyHint.value = ''
@@ -173,6 +252,7 @@ const confirmResetDeviceId = async () => {
 }
 
 onMounted(() => {
+  void loadStockOptions()
   requestAnimationFrame(() => {
     sheetVisible.value = true
   })
@@ -276,6 +356,80 @@ onMounted(() => {
   height: 1px;
   background: rgba(255, 255, 255, 0.06);
   margin: 4px 0;
+}
+
+.stock-count-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.stock-setting-sub {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 4px 0 10px;
+}
+
+.stock-select {
+  width: 100%;
+}
+
+.stock-error-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 73, 73, 0.15);
+  border: 1px solid rgba(255, 73, 73, 0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.stock-error-text {
+  font-size: 12px;
+  color: #ff8a8a;
+}
+
+.retry-btn {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.stock-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.stock-option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+}
+
+.option-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.option-price {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .device-row {

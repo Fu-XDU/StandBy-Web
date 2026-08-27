@@ -13,6 +13,7 @@ export interface FloatConfigPayload {
   clockStyle: string
   colorIndexMap: Record<string, number>
   brightness: number
+  numericalStocks: string[]
 }
 
 /** 远程 PATCH 时可只传需要修改的字段 */
@@ -63,7 +64,8 @@ export function equalFloatConfig(a: FloatConfigPayload, b: FloatConfigPayload): 
     equalBoolSlice(a.invisibleDay, b.invisibleDay) &&
     a.clockStyle === b.clockStyle &&
     equalIntMap(a.colorIndexMap, b.colorIndexMap) &&
-    floatEqual(a.brightness, b.brightness)
+    floatEqual(a.brightness, b.brightness) &&
+    equalStringSlice(a.numericalStocks || [], b.numericalStocks || [])
   )
 }
 
@@ -72,7 +74,12 @@ export function applyFloatConfigPatch(
   current: FloatConfigPayload,
   patch: FloatConfigPatch,
 ): FloatConfigPayload {
-  const next = { ...current, invisibleDay: [...current.invisibleDay], colorIndexMap: { ...current.colorIndexMap } }
+  const next = {
+    ...current,
+    invisibleDay: [...current.invisibleDay],
+    colorIndexMap: { ...current.colorIndexMap },
+    numericalStocks: [...(current.numericalStocks || [])],
+  }
   if (patch.autoNightMode !== undefined) next.autoNightMode = patch.autoNightMode
   if (patch.nightModeRange !== undefined) next.nightModeRange = [...patch.nightModeRange]
   if (patch.autoInvisible !== undefined) next.autoInvisible = patch.autoInvisible
@@ -82,6 +89,7 @@ export function applyFloatConfigPatch(
   if (patch.clockStyle !== undefined) next.clockStyle = patch.clockStyle
   if (patch.colorIndexMap !== undefined) next.colorIndexMap = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) next.brightness = clampOpacity(patch.brightness)
+  if (patch.numericalStocks !== undefined) next.numericalStocks = [...patch.numericalStocks]
   return next
 }
 

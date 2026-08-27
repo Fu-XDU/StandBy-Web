@@ -21,6 +21,7 @@ type FloatPageConfig struct {
 	ClockStyle         string         `json:"clockStyle"`
 	ColorIndexMap      map[string]int `json:"colorIndexMap"`
 	Brightness         float64        `json:"brightness"`
+	NumericalStocks    []string       `json:"numericalStocks"`
 }
 
 // FloatPageConfigPatch 仅包含需要远程修改的字段（指针非 nil 表示要更新）。
@@ -34,6 +35,7 @@ type FloatPageConfigPatch struct {
 	ClockStyle         *string          `json:"clockStyle"`
 	ColorIndexMap      *map[string]int  `json:"colorIndexMap"`
 	Brightness         *float64         `json:"brightness"`
+	NumericalStocks    *[]string        `json:"numericalStocks"`
 }
 
 func (p *FloatPageConfigPatch) IsEmpty() bool {
@@ -48,7 +50,8 @@ func (p *FloatPageConfigPatch) IsEmpty() bool {
 		p.InvisibleDay == nil &&
 		p.ClockStyle == nil &&
 		p.ColorIndexMap == nil &&
-		p.Brightness == nil
+		p.Brightness == nil &&
+		p.NumericalStocks == nil
 }
 
 func defaultFloatConfig() *FloatPageConfig {
@@ -62,6 +65,7 @@ func defaultFloatConfig() *FloatPageConfig {
 		ClockStyle:         "float",
 		ColorIndexMap:      map[string]int{"float": 0, "numerical": 0},
 		Brightness:         1,
+		NumericalStocks:    []string{},
 	}
 }
 
@@ -94,6 +98,9 @@ func applyPatch(base *FloatPageConfig, patch *FloatPageConfigPatch) *FloatPageCo
 	if patch.Brightness != nil {
 		out.Brightness = *patch.Brightness
 	}
+	if patch.NumericalStocks != nil {
+		out.NumericalStocks = append([]string(nil), (*patch.NumericalStocks)...)
+	}
 	return out
 }
 
@@ -114,6 +121,9 @@ func validatePatch(patch *FloatPageConfigPatch) error {
 		return ErrInvalidConfig
 	}
 	if patch.Brightness != nil && !brightnessInRange(*patch.Brightness) {
+		return ErrInvalidConfig
+	}
+	if patch.NumericalStocks != nil && !validateNumericalStocks(*patch.NumericalStocks) {
 		return ErrInvalidConfig
 	}
 	return nil
@@ -163,7 +173,8 @@ func EqualFloatConfig(a, b *FloatPageConfig) bool {
 		equalBoolSlice(a.InvisibleDay, b.InvisibleDay) &&
 		a.ClockStyle == b.ClockStyle &&
 		equalIntMap(a.ColorIndexMap, b.ColorIndexMap) &&
-		floatEqual(a.Brightness, b.Brightness)
+		floatEqual(a.Brightness, b.Brightness) &&
+		equalStringSlice(a.NumericalStocks, b.NumericalStocks)
 }
 
 func brightnessInRange(v float64) bool {
@@ -218,6 +229,7 @@ func cloneFloatConfig(c *FloatPageConfig) *FloatPageConfig {
 	cp.InvisibleRange = append([]string(nil), c.InvisibleRange...)
 	cp.InvisibleDay = append([]bool(nil), c.InvisibleDay...)
 	cp.ColorIndexMap = cloneIntMap(c.ColorIndexMap)
+	cp.NumericalStocks = append([]string(nil), c.NumericalStocks...)
 	return &cp
 }
 
@@ -230,11 +242,24 @@ func validateFloatConfig(c *FloatPageConfig) bool {
 		validateInvisibleWeek(c.InvisibleDay) &&
 		validateClockStyle(c.ClockStyle) &&
 		validateColorIndexMap(c.ColorIndexMap) &&
-		brightnessInRange(c.Brightness)
+		brightnessInRange(c.Brightness) &&
+		validateNumericalStocks(c.NumericalStocks)
 }
 
 func validateClockStyle(s string) bool {
 	return len(s) > 0 && len(s) <= 32
+}
+
+func validateNumericalStocks(stocks []string) bool {
+	if len(stocks) > 3 {
+		return false
+	}
+	for _, s := range stocks {
+		if len(s) == 0 || len(s) > 64 {
+			return false
+		}
+	}
+	return true
 }
 
 func validateColorIndexMap(m map[string]int) bool {
