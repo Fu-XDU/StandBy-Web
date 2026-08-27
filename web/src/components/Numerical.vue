@@ -182,6 +182,7 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
+  flex-shrink: 0;
 }
 
 .numerical-colon {
@@ -193,8 +194,12 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: 5vw;
+  margin-left: 4vw;
   padding-top: 9vw;
+  width: 26vw;
+  max-width: 26vw;
+  box-sizing: border-box;
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -222,7 +227,6 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   gap: 0.8vw;
   margin-top: 1.8vw;
   width: 100%;
-  min-width: 24vw;
   box-sizing: border-box;
 }
 
@@ -231,9 +235,10 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  gap: 2vw;
+  width: 100%;
+  gap: 1.2vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro Text', 'Helvetica Neue', sans-serif;
-  font-size: 2.8vw;
+  font-size: 2.6vw;
   line-height: 1.25;
 }
 
@@ -243,7 +248,8 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
-  max-width: 20vw;
+  flex: 1;
+  min-width: 0;
 }
 
 .stock-price {
@@ -252,6 +258,7 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .stock-row.night-mode .stock-name {
