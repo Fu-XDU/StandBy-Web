@@ -23,7 +23,8 @@ RUN go build -o ./bin/server .
 FROM alpine:3.22
 COPY --from=web_builder /web/dist/ /assets/web/v1/
 COPY --from=builder /app/bin/server /server
-RUN chmod +x server && mkdir -p /etc/standby-web
+RUN apk add --no-cache curl && chmod +x server && mkdir -p /etc/standby-web
 VOLUME ["/etc/standby-web"]
 EXPOSE 1423
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD curl -fs http://127.0.0.1:1423/ || exit 1
 CMD ["./server"]

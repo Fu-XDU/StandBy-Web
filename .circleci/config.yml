@@ -75,8 +75,7 @@ jobs:
       - run:
           name: "Deploy"
           command: |
-            docker-compose -f /var/opt/circleci/docker/standby-web/docker-compose.yaml down
-            docker-compose -f /var/opt/circleci/docker/standby-web/docker-compose.yaml up -d
+            docker-compose -f /var/opt/circleci/docker/standby-web/docker-compose.yaml up -d --force-recreate
   push-dockerhub:
     executor: tencent-cloud-hk
     steps:
