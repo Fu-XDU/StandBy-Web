@@ -10,6 +10,11 @@
     src: url('./fonts/AFCamberwell-One-Regular.otf')
 }
 
+@font-face {
+    font-family: 'ResidenzGrotesk-SemBdExp';
+    src: url('./fonts/ResidenzGroteskTrial-SemBdExp-BF676cd80c3584e.otf')
+}
+
 html, body, #app {
     font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
 }
