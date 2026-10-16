@@ -11,9 +11,19 @@ import {isFullscreenActive, requestAppFullscreen} from '@/utils/fullscreen'
 
 const {clockStyle} = useClockStyle()
 
+function locateClockStyle(id: string): { typeIndex: number; styleIndex: number } | null {
+  for (let ti = 0; ti < CLOCK_TYPES.length; ti++) {
+    const si = CLOCK_TYPES[ti].styles.findIndex(s => s.id === id)
+    if (si !== -1) return { typeIndex: ti, styleIndex: si }
+  }
+  return null
+}
+
 // ── 导航状态 ─────────────────────────────────────────────
-const typeIndex = ref(0)
-const styleIndex = ref(0)
+// clockStyle 已从 localStorage 恢复；索引用它初始化，避免一进来就被写成第一项
+const restored = locateClockStyle(clockStyle.value)
+const typeIndex = ref(restored?.typeIndex ?? 0)
+const styleIndex = ref(restored?.styleIndex ?? 0)
 
 // 当前类型的所有样式
 const currentType = computed(() => CLOCK_TYPES[typeIndex.value] ?? CLOCK_TYPES[0])
@@ -27,14 +37,10 @@ watch([typeIndex, styleIndex], () => {
 }, {immediate: true})
 
 watch(clockStyle, (id) => {
-  for (let ti = 0; ti < CLOCK_TYPES.length; ti++) {
-    const si = CLOCK_TYPES[ti].styles.findIndex(s => s.id === id)
-    if (si !== -1) {
-      typeIndex.value = ti
-      styleIndex.value = si
-      return
-    }
-  }
+  const located = locateClockStyle(id)
+  if (!located) return
+  typeIndex.value = located.typeIndex
+  styleIndex.value = located.styleIndex
 })
 
 // ── 拖拽偏移 ─────────────────────────────────────────────
