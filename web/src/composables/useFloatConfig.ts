@@ -19,7 +19,7 @@ const invisibleRange = ref([new Date(2025, 0, 0, 0, 0), new Date(2025, 0, 0, 6, 
 const invisibleDayEnable = ref(false)
 const invisibleDay = ref([false, false, false, false, false, false, false])
 const clockStyle = ref('float')
-const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0 })
+const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0, analog: 0 })
 const brightness = ref(1)
 const remoteControlEnabled = ref(false)
 const numericalStocks = ref<string[]>([])
@@ -169,7 +169,7 @@ function initFloatConfig() {
   useLocalStorageSync('colorIndexMap', colorIndexMap, {
     parser: (val: unknown) => {
       if (val && typeof val === 'object' && !Array.isArray(val)) return val as Record<string, number>
-      return { float: 0, numerical: 0 }
+      return { float: 0, numerical: 0, analog: 0 }
     },
     deep: true,
   })

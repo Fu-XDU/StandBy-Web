@@ -63,7 +63,7 @@ func defaultFloatConfig() *FloatPageConfig {
 		InvisibleDayEnable: false,
 		InvisibleDay:       []bool{false, false, false, false, false, false, false},
 		ClockStyle:         "float",
-		ColorIndexMap:      map[string]int{"float": 0, "numerical": 0},
+		ColorIndexMap:      map[string]int{"float": 0, "numerical": 0, "analog": 0},
 		Brightness:         1,
 		NumericalStocks:    []string{},
 	}
