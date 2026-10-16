@@ -6,6 +6,7 @@
       :viewBox="`0 0 ${width} ${height}`"
       preserveAspectRatio="xMidYMid meet"
     >
+      <g :transform="`translate(${centerX} ${centerY}) scale(${dialScale}) translate(${-centerX} ${-centerY})`">
       <line
         v-for="(tick, index) in ticks"
         :key="index"
@@ -14,26 +15,33 @@
         :x2="tick.x2"
         :y2="tick.y2"
         :stroke-width="tickWidth"
+        :stroke-opacity="tick.opacity"
         class="tick"
       />
 
       <g :transform="`translate(${centerX} ${centerY})`">
-        <line
-          class="hand"
-          y1="0"
-          :y2="-hourLength"
-          :stroke-width="handWidth"
-          stroke-linecap="round"
-          :transform="`rotate(${hourAngle})`"
-        />
-        <line
-          class="hand"
-          y1="0"
-          :y2="-minuteLength"
-          :stroke-width="handWidth"
-          stroke-linecap="round"
-          :transform="`rotate(${minuteAngle})`"
-        />
+        <g
+          v-for="hand in hands"
+          :key="hand.name"
+          :transform="`rotate(${hand.angle})`"
+        >
+          <line
+            class="hand"
+            stroke-linecap="round"
+            :y1="handShape.neckY1"
+            :y2="handShape.neckY2"
+            :stroke-width="neckWidth"
+          />
+          <path class="hand-fill" :d="handShape.taper" />
+          <line
+            class="hand"
+            stroke-linecap="butt"
+            :y1="handShape.bodyY1"
+            :y2="hand.shaftEnd"
+            :stroke-width="handWidth"
+          />
+          <circle class="hand-fill" :cy="hand.tipCenter" :r="handWidth / 2" />
+        </g>
       </g>
 
       <text
@@ -68,13 +76,21 @@
           stroke-linecap="round"
           :transform="`rotate(${secondAngle})`"
         />
+        <circle class="hub" :r="hubRadius" />
         <circle class="cap" :r="capRadius" />
+        <circle class="pin" :r="pinRadius" />
+      </g>
       </g>
     </svg>
   </div>
 </template>
 
 <script lang="ts">
+// 每个主题 6 个颜色，下标与颜色面板、ClockLayout 一致：
+// [0] 色点左半  [1] 色点右半
+// [2] 刻度、数字、日期、时针、分针
+// [3] 秒针、中心圆点
+// [4][5] 预留，Analog 暂未使用
 export const analogColors = [
   ['#f4f4f5', '#e39b4e', '#ffffff', '#e39b4e', '#ffffff', '#e39b4e'],
   ['#5aa6e6', '#9fd4f8', '#8ec8f8', '#e39b4e', '#8ec8f8', '#e39b4e'],
@@ -100,25 +116,36 @@ defineProps<{
   isNightMode: boolean
 }>()
 
-// 比例来自参考截图（1024×472）：刻度外端贴着内缩矩形，时针刻度从 56% 半径拉到边缘。
+// 参考图刻度内缩。整表按这个比例绘制，再等比放大，让左右刻度贴到屏幕边缘。
 const MARGIN_X = 0.0527
 const MARGIN_Y = 0.0551
 const HOUR_INNER = 0.56
 const TICK_INSET = 0.0614
+const HOUR_TICK_OPACITY = 0.66
+const MINUTE_TICK_OPACITY = 0.315
 const NUM_RX = 0.627
 const NUM_RY = 0.563
-// 时针、分针长度跟着数字所在的椭圆走。秒针长度固定，竖直向上时针尖落在表盘上沿。
-const HOUR_REACH = 0.58
-const MINUTE_REACH = 0.76
+// 时针、分针长度为中心到表盘上沿的比例，不随角度变化。秒针竖直向上时针尖落在表盘上沿。
+const HOUR_LENGTH = 0.51
+const MINUTE_LENGTH = 0.89
 const SECOND_TAIL = 0.083
 const HAND_WIDTH = 0.034
-const SECOND_WIDTH = 0.0052
-const CAP_RADIUS = 0.018
+const SECOND_WIDTH = 0.0066
+// 时针、分针细颈从圆心伸出，再过渡到全宽。比例相对短边。
+const NECK_WIDTH = 0.0143
+const NECK_END = 0.058
+const BODY_START = 0.072
+// 三针原点固定在圆心。白圆盖住交点，上面是金色圆盘和黑点。秒针从下面穿过。
+const HUB_RADIUS = 29.5 / 1290
+const CAP_RADIUS = 0.0163
+const PIN_RADIUS = 0.007
 const TICK_WIDTH = 0.0076
 const NUMERAL_SIZE = 0.148
 const DATE_SIZE = 0.048
 const DATE_X = 0.336
 const CARDINAL_GAP = 0.05
+// 12 上移、6 下移。按参考高度 472px 约 5px，随表盘缩放。
+const NUMERAL_SHIFT = 5 / 472
 
 const root = ref<HTMLElement | null>(null)
 const width = ref(0)
@@ -130,12 +157,70 @@ let frame = 0
 
 const centerX = computed(() => width.value / 2)
 const centerY = computed(() => height.value / 2)
+const dialScale = computed(() => 0.5 / (0.5 - MARGIN_X))
 const shortSide = computed(() => Math.min(width.value, height.value))
 
 const secondTail = computed(() => shortSide.value * SECOND_TAIL)
 const handWidth = computed(() => shortSide.value * HAND_WIDTH)
+const neckWidth = computed(() => shortSide.value * NECK_WIDTH)
 const secondWidth = computed(() => Math.max(1.5, shortSide.value * SECOND_WIDTH))
+const hubRadius = computed(() => shortSide.value * HUB_RADIUS)
 const capRadius = computed(() => shortSide.value * CAP_RADIUS)
+const pinRadius = computed(() => shortSide.value * PIN_RADIUS)
+
+const handShape = computed(() => {
+  const nr = neckWidth.value / 2
+  const br = handWidth.value / 2
+  const neckEnd = shortSide.value * NECK_END
+  const bodyStart = shortSide.value * BODY_START
+  const y0 = -neckEnd
+  const y1 = -bodyStart
+  const y2 = y1 - br * 0.45
+  const du = br - nr
+  const dv = y0 - y1
+  // 细颈到全宽的肩部是圆弧，并与全宽侧边相切。
+  const radius = (du * du + dv * dv) / (2 * du)
+  const cx = br - radius
+  const cy = y1
+  const a0 = Math.atan2(y0 - cy, nr - cx)
+  const a1 = Math.atan2(0, radius)
+  let delta = a1 - a0
+  if (delta > Math.PI) delta -= Math.PI * 2
+  if (delta < -Math.PI) delta += Math.PI * 2
+  const steps = 24
+  const right: string[] = []
+  for (let i = 0; i <= steps; i++) {
+    const angle = a0 + (delta * i) / steps
+    right.push(`${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`)
+  }
+  const left = right.map((point) => {
+    const [x, y] = point.split(',')
+    return `${-Number(x)},${y}`
+  }).reverse()
+  return {
+    neckY1: 0,
+    neckY2: y0,
+    taper: `M ${-nr},${y0} L ${right.join(' ')} L ${br},${y2} L ${-br},${y2} L ${left.join(' ')} Z`,
+    bodyY1: y1,
+  }
+})
+
+const hands = computed(() => {
+  const br = handWidth.value / 2
+  return [
+    { name: 'hour', angle: hourAngle.value, length: hourLength.value },
+    { name: 'minute', angle: minuteAngle.value, length: minuteLength.value },
+  ].map((hand) => {
+    const visualTip = hand.length + br
+    const tipCenter = -(visualTip - br)
+    return {
+      name: hand.name,
+      angle: hand.angle,
+      tipCenter,
+      shaftEnd: tipCenter - br * 0.35,
+    }
+  })
+})
 const tickWidth = computed(() => shortSide.value * TICK_WIDTH)
 const numeralSize = computed(() => shortSide.value * NUMERAL_SIZE)
 const dateSize = computed(() => shortSide.value * DATE_SIZE)
@@ -169,12 +254,7 @@ interface Tick {
   y1: number
   x2: number
   y2: number
-}
-
-function ellipseRadius(angleDeg: number, rx: number, ry: number): number {
-  const rad = (angleDeg * Math.PI) / 180
-  const denom = Math.hypot(ry * Math.sin(rad), rx * Math.cos(rad))
-  return denom < 1e-6 ? 0 : (rx * ry) / denom
+  opacity: number
 }
 
 function rayLength(angleDeg: number, halfW: number, halfH: number): number {
@@ -186,15 +266,8 @@ function rayLength(angleDeg: number, halfW: number, halfH: number): number {
   return Math.min(tx, ty)
 }
 
-const hourLength = computed(() => {
-  const { numRx, numRy } = layout.value
-  return ellipseRadius(hourAngle.value, numRx, numRy) * HOUR_REACH
-})
-
-const minuteLength = computed(() => {
-  const { numRx, numRy } = layout.value
-  return ellipseRadius(minuteAngle.value, numRx, numRy) * MINUTE_REACH
-})
+const hourLength = computed(() => layout.value.halfH * HOUR_LENGTH)
+const minuteLength = computed(() => layout.value.halfH * MINUTE_LENGTH)
 
 const secondLength = computed(() => Math.max(0, layout.value.halfH - secondWidth.value / 2))
 
@@ -242,17 +315,19 @@ const ticks = computed<Tick[]>(() => {
       y1: cy + dy * inner,
       x2: cx + dx * outer,
       y2: cy + dy * outer,
+      opacity: i % 5 === 0 ? HOUR_TICK_OPACITY : MINUTE_TICK_OPACITY,
     })
   }
   return points
 })
 
 const numerals = computed(() => {
-  const { cx, cy, numRx, numRy } = layout.value
+  const { cx, cy, numRx, numRy, s } = layout.value
+  const shift = s * NUMERAL_SHIFT
   return [
-    { label: '12', x: cx, y: cy - numRy },
+    { label: '12', x: cx, y: cy - numRy - shift },
     { label: '3', x: cx + numRx, y: cy },
-    { label: '6', x: cx, y: cy + numRy },
+    { label: '6', x: cx, y: cy + numRy + shift },
     { label: '9', x: cx - numRx, y: cy },
   ]
 })
@@ -301,26 +376,23 @@ onBeforeUnmount(() => {
   height: auto;
   aspect-ratio: 1024 / 472;
   flex: 0 0 auto;
-  /*background: #000 url('../assets/analog-reference.png') center / 100% auto no-repeat;*/
 }
 
 .analog-svg {
   display: block;
   width: 100%;
   height: 100%;
-  /* 半透明叠在参考截图上，方便逐像素对照。对齐后删掉这行和背景图。 */
-  opacity: 0.5;
 }
 
 .tick {
   stroke: var(--color-0);
   stroke-linecap: butt;
-  opacity: 0.64;
 }
 
 .numeral {
   fill: var(--color-0);
-  font-family: 'SF-Pro-Rounded-Black', sans-serif;
+  font-family: 'ResidenzGrotesk-SemBdExp', sans-serif;
+  font-size: 78px;
 }
 
 .date {
@@ -343,6 +415,15 @@ onBeforeUnmount(() => {
 
 .hand {
   stroke: var(--color-0);
+  fill: none;
+}
+
+.hand-fill {
+  fill: var(--color-0);
+}
+
+.hub {
+  fill: var(--color-0);
 }
 
 .second {
@@ -351,5 +432,9 @@ onBeforeUnmount(() => {
 
 .cap {
   fill: var(--color-1);
+}
+
+.pin {
+  fill: #000;
 }
 </style>
