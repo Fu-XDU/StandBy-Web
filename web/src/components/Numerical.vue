@@ -103,7 +103,7 @@ let digitLayerId = 0
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// 变化的那一位单独过渡：旧数字 0.3 秒上移变浅，新数字同时从偏低处出现，1.5 秒升到原位。
+// 变化的那一位单独过渡：旧数字加速上移变浅，新数字同时从偏低处出现并减速升到原位。
 const syncDigitSlots = (digits: string[]) => {
   for (let index = 0; index < 4; index += 1) {
     const char = digits[index]
@@ -332,13 +332,13 @@ const onResize = () => {
   left: 0;
   top: 0;
   z-index: 0;
-  animation: numerical-digit-leave 0.2s linear forwards;
+  animation: numerical-digit-leave 0.2s ease-in forwards;
 }
 
 .numerical-digit-enter {
   position: relative;
   z-index: 1;
-  animation: numerical-digit-enter 0.7s linear both;
+  animation: numerical-digit-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes numerical-digit-leave {
