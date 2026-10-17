@@ -1,7 +1,27 @@
 <template>
   <div v-if="digits.length > 0" class="numerical-wrapper" :style="{ opacity: displayOpacity(brightness) }">
+    <svg class="numerical-filter" aria-hidden="true" focusable="false">
+      <filter
+        id="numerical-round"
+        x="-4%"
+        y="-8%"
+        width="108%"
+        height="116%"
+        color-interpolation-filters="sRGB"
+      >
+        <feGaussianBlur in="SourceAlpha" :stdDeviation="cornerRadius" result="blur" />
+        <feComponentTransfer in="blur" result="mask">
+          <feFuncA type="linear" slope="28" intercept="-14" />
+        </feComponentTransfer>
+        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+      </filter>
+    </svg>
     <div class="numerical-inner">
-      <time class="numerical-time">{{ digits[0] }}{{ digits[1] }}<span class="numerical-colon">:</span>{{ digits[2] }}{{ digits[3] }}</time>
+      <time class="numerical-time">
+        <span class="numerical-digits">{{ digits[0] }}{{ digits[1] }}</span>
+        <span class="numerical-colon" aria-hidden="true"></span>
+        <span class="numerical-digits">{{ digits[2] }}{{ digits[3] }}</span>
+      </time>
       <div class="numerical-side">
         <div class="numerical-date-row">
           <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
@@ -140,16 +160,26 @@ watch(
 onMounted(() => {
   dateTimer = window.setInterval(updateDate, 60_000)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('resize', onResize)
 })
 
 onBeforeUnmount(() => {
   if (dateTimer !== undefined) clearInterval(dateTimer)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('resize', onResize)
   stopStockTimer()
 })
 
 const dayOfMonth = computed(() => now.value.getDate())
 const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六'][now.value.getDay()])
+
+const viewportWidth = ref(window.innerWidth)
+// 字号是 50vw。拐角圆度约为字号的 1%，随屏幕缩放。
+const cornerRadius = computed(() => Math.max(0.6, viewportWidth.value * 0.005))
+
+const onResize = () => {
+  viewportWidth.value = window.innerWidth
+}
 </script>
 
 <style scoped>
@@ -172,22 +202,48 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   margin-bottom: 8vh;
 }
 
+.numerical-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
 .numerical-time {
+  display: flex;
+  align-items: stretch;
   font-family: 'AFCamberwell-One-Regular', serif;
   font-size: 50vw;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+.numerical-digits {
   letter-spacing: -0.8vw;
   background: linear-gradient(to bottom, var(--color-0), var(--color-1));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
-  flex-shrink: 0;
+  filter: url(#numerical-round);
 }
 
 .numerical-colon {
-  padding: 0 0.3vw;
-  vertical-align: 4vw;
+  width: 7.5vw;
+  margin: 0 1.2vw;
+  align-self: stretch;
+  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
+  -webkit-mask-image:
+    radial-gradient(circle closest-side, #000 99%, transparent 100%),
+    radial-gradient(circle closest-side, #000 99%, transparent 100%);
+  -webkit-mask-size: 7.5vw 7.5vw, 7.5vw 7.5vw;
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-position: center 27%, center 73%;
+  mask-image:
+    radial-gradient(circle closest-side, #000 99%, transparent 100%),
+    radial-gradient(circle closest-side, #000 99%, transparent 100%);
+  mask-size: 7.5vw 7.5vw, 7.5vw 7.5vw;
+  mask-repeat: no-repeat, no-repeat;
+  mask-position: center 27%, center 73%;
 }
 
 .numerical-side {
@@ -195,7 +251,7 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   flex-direction: column;
   align-items: flex-start;
   margin-left: 4vw;
-  padding-top: 9vw;
+  padding-top: 4.45vw;
   width: 26vw;
   max-width: 26vw;
   box-sizing: border-box;
