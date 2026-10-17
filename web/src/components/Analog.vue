@@ -20,6 +20,7 @@
       />
 
       <g :transform="`translate(${centerX} ${centerY})`">
+        <circle class="hub" :r="hubRadius" />
         <g
           v-for="hand in hands"
           :key="hand.name"
@@ -78,7 +79,6 @@
           stroke-linecap="round"
           :transform="`rotate(${secondAngle})`"
         />
-        <circle class="hub" :r="hubRadius" />
         <circle class="cap" :r="capRadius" />
         <circle class="pin" :r="pinRadius" />
       </g>
