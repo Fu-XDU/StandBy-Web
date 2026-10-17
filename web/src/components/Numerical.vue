@@ -18,9 +18,24 @@
     </svg>
     <div class="numerical-inner">
       <time class="numerical-time">
-        <span class="numerical-digits">{{ digits[0] }}{{ digits[1] }}</span>
-        <span class="numerical-colon" aria-hidden="true"></span>
-        <span class="numerical-digits">{{ digits[2] }}{{ digits[3] }}</span>
+        <template v-for="(group, groupIndex) in digitGroups" :key="groupIndex">
+          <span v-if="groupIndex === 1" class="numerical-colon" aria-hidden="true"></span>
+          <span class="numerical-digits">
+            <span v-for="slot in group" :key="slot.index" class="numerical-digit-slot">
+              <span
+                v-for="layer in slot.layers"
+                :key="layer.id"
+                class="numerical-digit"
+                :class="{
+                  'numerical-digit-enter': layer.phase === 'enter',
+                  'numerical-digit-leave': layer.phase === 'leave',
+                }"
+                :aria-hidden="layer.phase === 'leave'"
+                @animationend="onDigitAnimationEnd(slot.index, layer.id, $event)"
+              >{{ layer.char }}</span>
+            </span>
+          </span>
+        </template>
       </time>
       <div class="numerical-side">
         <div class="numerical-date-row">
@@ -62,13 +77,74 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useFloatConfig } from '@/composables/useFloatConfig'
 import { extractStockItems, fetchGlanceMenu, type StockItem } from '@/composables/useGlanceStocks'
 
-defineProps<{
+const props = defineProps<{
   digits: string[]
   displayOpacity: (opacity: number) => number
   colonOpacity: number
   brightness: number
   isNightMode: boolean
 }>()
+
+type DigitPhase = 'settled' | 'enter' | 'leave'
+
+type DigitLayer = {
+  id: number
+  char: string
+  phase: DigitPhase
+}
+
+type DigitSlot = {
+  index: number
+  layers: DigitLayer[]
+}
+
+const digitSlots = ref<DigitSlot[]>([0, 1, 2, 3].map((index) => ({ index, layers: [] })))
+let digitLayerId = 0
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// 变化的那一位单独过渡：旧数字 0.3 秒上移变浅，新数字同时从偏低处出现，1.5 秒升到原位。
+const syncDigitSlots = (digits: string[]) => {
+  for (let index = 0; index < 4; index += 1) {
+    const char = digits[index]
+    if (!char) continue
+    const slot = digitSlots.value[index]
+    const current = slot.layers.find((layer) => layer.phase !== 'leave')
+    if (!current) {
+      slot.layers.push({ id: digitLayerId++, char, phase: 'settled' })
+      continue
+    }
+    if (current.char === char) continue
+    if (prefersReducedMotion()) {
+      slot.layers = [{ id: digitLayerId++, char, phase: 'settled' }]
+      continue
+    }
+    current.phase = 'leave'
+    slot.layers.push({ id: digitLayerId++, char, phase: 'enter' })
+  }
+}
+
+watch(
+  () => props.digits,
+  (digits) => syncDigitSlots(digits),
+  { immediate: true },
+)
+
+const digitGroups = computed(() => [digitSlots.value.slice(0, 2), digitSlots.value.slice(2)])
+
+const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) => {
+  if (event.target !== event.currentTarget) return
+  const slot = digitSlots.value[index]
+  const layer = slot?.layers.find((item) => item.id === id)
+  if (!layer) return
+  if (event.animationName.includes('leave') && layer.phase === 'leave') {
+    slot.layers = slot.layers.filter((item) => item.id !== id)
+    return
+  }
+  if (event.animationName.includes('enter') && layer.phase === 'enter') {
+    layer.phase = 'settled'
+  }
+}
 
 const { numericalStocks } = useFloatConfig()
 
@@ -183,6 +259,12 @@ const onResize = () => {
 </script>
 
 <style scoped>
+@property --digit-wash {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 .numerical-wrapper {
   display: flex;
   align-items: center;
@@ -218,13 +300,76 @@ const onResize = () => {
 }
 
 .numerical-digits {
-  letter-spacing: -0.8vw;
-  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
+  display: flex;
+  align-items: flex-start;
+}
+
+.numerical-digit-slot {
+  position: relative;
+}
+
+.numerical-digit-slot + .numerical-digit-slot {
+  margin-left: -0.8vw;
+}
+
+.numerical-digit {
+  --digit-wash: 0;
+  display: block;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-0) calc((1 - var(--digit-wash)) * 100%), white),
+    color-mix(in srgb, var(--color-1) calc((1 - var(--digit-wash)) * 100%), white)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
   filter: url(#numerical-round);
+}
+
+.numerical-digit-leave {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  animation: numerical-digit-leave 0.2s linear forwards;
+}
+
+.numerical-digit-enter {
+  position: relative;
+  z-index: 1;
+  animation: numerical-digit-enter 0.7s linear both;
+}
+
+@keyframes numerical-digit-leave {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+    --digit-wash: 0;
+  }
+  to {
+    transform: translateY(-1.6vw);
+    opacity: 0;
+    --digit-wash: 1;
+  }
+}
+
+@keyframes numerical-digit-enter {
+  from {
+    transform: translateY(1vw);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .numerical-digit-enter,
+  .numerical-digit-leave {
+    animation: none;
+  }
 }
 
 .numerical-colon {
