@@ -3,17 +3,25 @@
     <svg class="numerical-filter" aria-hidden="true" focusable="false">
       <filter
         id="numerical-round"
-        x="-4%"
-        y="-8%"
-        width="108%"
-        height="116%"
+        x="-50%"
+        y="-50%"
+        width="200%"
+        height="200%"
         color-interpolation-filters="sRGB"
       >
-        <feGaussianBlur in="SourceAlpha" :stdDeviation="cornerRadius" result="blur" />
-        <feComponentTransfer in="blur" result="mask">
+        <feGaussianBlur
+          in="SourceAlpha"
+          :stdDeviation="cornerRadius"
+          result="blur"
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+        />
+        <feComponentTransfer in="blur" result="mask" x="-50%" y="-50%" width="200%" height="200%">
           <feFuncA type="linear" slope="28" intercept="-14" />
         </feComponentTransfer>
-        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+        <feComposite in="SourceGraphic" in2="mask" operator="in" x="-50%" y="-50%" width="200%" height="200%" />
       </filter>
     </svg>
     <div class="numerical-inner">
@@ -25,14 +33,14 @@
               <span
                 v-for="layer in slot.layers"
                 :key="layer.id"
-                class="numerical-digit"
+                class="numerical-digit-frame"
                 :class="{
                   'numerical-digit-enter': layer.phase === 'enter',
                   'numerical-digit-leave': layer.phase === 'leave',
                 }"
                 :aria-hidden="layer.phase === 'leave'"
                 @animationend="onDigitAnimationEnd(slot.index, layer.id, $event)"
-              >{{ layer.char }}</span>
+              ><span class="numerical-digit">{{ layer.char }}</span></span>
             </span>
           </span>
         </template>
@@ -250,8 +258,8 @@ const dayOfMonth = computed(() => now.value.getDate())
 const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六'][now.value.getDay()])
 
 const viewportWidth = ref(window.innerWidth)
-// 字号是 50vw。拐角圆度约为字号的 1%，随屏幕缩放。
-const cornerRadius = computed(() => Math.max(0.6, viewportWidth.value * 0.005))
+// 字号是 50vw。拐角圆度约为字号的 1%。取整，避免 Safari 在小数模糊半径处把笔画切开。
+const cornerRadius = computed(() => Math.max(1, Math.round(viewportWidth.value * 0.005)))
 
 const onResize = () => {
   viewportWidth.value = window.innerWidth
@@ -312,6 +320,15 @@ const onResize = () => {
   margin-left: -0.8vw;
 }
 
+.numerical-digit-frame {
+  display: block;
+  filter: url(#numerical-round);
+  /* 样式轨道的 transform 会让 iPad 的 WebKit 把滤镜从字形中间切开。单独建一层合成层避开。 */
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 .numerical-digit {
   --digit-wash: 0;
   display: block;
@@ -324,7 +341,6 @@ const onResize = () => {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
-  filter: url(#numerical-round);
 }
 
 .numerical-digit-leave {
@@ -343,12 +359,12 @@ const onResize = () => {
 
 @keyframes numerical-digit-leave {
   from {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
     --digit-wash: 0;
   }
   to {
-    transform: translateY(-1.6vw);
+    transform: translate3d(0, -1.6vw, 0);
     opacity: 0;
     --digit-wash: 1;
   }
@@ -356,11 +372,11 @@ const onResize = () => {
 
 @keyframes numerical-digit-enter {
   from {
-    transform: translateY(1vw);
+    transform: translate3d(0, 1vw, 0);
     opacity: 0.2;
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
@@ -402,6 +418,17 @@ const onResize = () => {
   box-sizing: border-box;
   overflow: hidden;
   white-space: nowrap;
+}
+
+/* 横屏手机高度小于字号，overflow 会把数字裁掉。矮屏时把字号收到视口里。 */
+@media (max-height: 520px) {
+  .numerical-time {
+    font-size: min(50vw, 78dvh);
+  }
+
+  .numerical-side {
+    padding-top: calc(min(50vw, 78dvh) * 0.089);
+  }
 }
 
 .numerical-date-row {

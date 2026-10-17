@@ -150,6 +150,10 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
   --digit-wash: 0;
   display: block;
   color: color-mix(in srgb, var(--digit-color) calc((1 - var(--digit-wash)) * 100%), white);
+  /* 样式轨道的 transform 会让 iPad 的 WebKit 把字形从中间切开。单独建一层合成层避开。 */
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .float-digit-0 {
@@ -169,7 +173,9 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 .float-colon {
   color: var(--color-colon);
   z-index: 2;
-  transform: translateY(-3vw) scale(1.1) rotate(2deg);
+  transform: translate3d(0, -3vw, 0) scale(1.1) rotate(2deg);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .float-digit-2 {
