@@ -56,9 +56,11 @@
       >{{ mark.label }}</text>
 
       <text
+        ref="dateEl"
         class="date"
         :x="dateX"
         :y="centerY"
+        :dy="dateDy"
         :font-size="dateSize"
         text-anchor="start"
         dominant-baseline="central"
@@ -106,7 +108,7 @@ export const analogNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 defineProps<{
   digits: string[]
@@ -141,6 +143,8 @@ const CAP_RADIUS = 0.0163
 const PIN_RADIUS = 0.007
 const TICK_WIDTH = 0.0076
 const NUMERAL_SIZE = 0.148
+// 数字在画面上的字号。电脑上表盘短边约 885px 时是 78px，按这个比例随表盘缩放。
+const NUMERAL_FONT = 83 / 885
 const DATE_SIZE = 0.048
 const DATE_X = 0.336
 const CARDINAL_GAP = 0.05
@@ -148,6 +152,8 @@ const CARDINAL_GAP = 0.05
 const NUMERAL_SHIFT = 5 / 472
 
 const root = ref<HTMLElement | null>(null)
+const dateEl = ref<SVGTextElement | null>(null)
+const dateDy = ref(0)
 const width = ref(0)
 const height = ref(0)
 const now = ref(new Date())
@@ -222,7 +228,7 @@ const hands = computed(() => {
   })
 })
 const tickWidth = computed(() => shortSide.value * TICK_WIDTH)
-const numeralSize = computed(() => shortSide.value * NUMERAL_SIZE)
+const numeralSize = computed(() => shortSide.value * NUMERAL_FONT)
 const dateSize = computed(() => shortSide.value * DATE_SIZE)
 
 const hourAngle = computed(() => {
@@ -339,6 +345,21 @@ const syncSize = () => {
   height.value = el.clientHeight
 }
 
+// 手机浏览器常忽略 dominant-baseline，日期会贴着基线偏上。按字形包围盒拉回中线。
+const alignDate = () => {
+  const el = dateEl.value
+  if (!el || !centerY.value) return
+  const box = el.getBBox()
+  if (box.height <= 0) return
+  const inkCenter = box.y + box.height / 2
+  const next = dateDy.value + (centerY.value - inkCenter)
+  if (Math.abs(next - dateDy.value) > 0.2) dateDy.value = next
+}
+
+watch([width, height, dayOfMonth, weekday, dateSize], () => {
+  nextTick(alignDate)
+})
+
 const tick = () => {
   now.value = new Date()
   frame = window.requestAnimationFrame(tick)
@@ -382,6 +403,8 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 .tick {
@@ -392,7 +415,6 @@ onBeforeUnmount(() => {
 .numeral {
   fill: var(--color-0);
   font-family: 'ResidenzGrotesk-SemBdExp', sans-serif;
-  font-size: 78px;
 }
 
 .date {
