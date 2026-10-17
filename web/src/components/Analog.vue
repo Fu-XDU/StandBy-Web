@@ -144,7 +144,7 @@ const PIN_RADIUS = 0.007
 const TICK_WIDTH = 0.0076
 const NUMERAL_SIZE = 0.148
 // 数字在画面上的字号。电脑上表盘短边约 885px 时是 78px，按这个比例随表盘缩放。
-const NUMERAL_FONT = 83 / 885
+const NUMERAL_FONT = 87 / 885
 const DATE_SIZE = 0.048
 const DATE_X = 0.336
 const CARDINAL_GAP = 0.05

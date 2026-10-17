@@ -1,7 +1,42 @@
 <template>
   <div v-if="digits.length > 0" class="numerical-wrapper" :style="{ opacity: displayOpacity(brightness) }">
+    <svg class="numerical-filter" aria-hidden="true" focusable="false">
+      <filter
+        id="numerical-round"
+        x="-4%"
+        y="-8%"
+        width="108%"
+        height="116%"
+        color-interpolation-filters="sRGB"
+      >
+        <feGaussianBlur in="SourceAlpha" :stdDeviation="cornerRadius" result="blur" />
+        <feComponentTransfer in="blur" result="mask">
+          <feFuncA type="linear" slope="28" intercept="-14" />
+        </feComponentTransfer>
+        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+      </filter>
+    </svg>
     <div class="numerical-inner">
-      <time class="numerical-time">{{ digits[0] }}{{ digits[1] }}<span class="numerical-colon">:</span>{{ digits[2] }}{{ digits[3] }}</time>
+      <time class="numerical-time">
+        <template v-for="(group, groupIndex) in digitGroups" :key="groupIndex">
+          <span v-if="groupIndex === 1" class="numerical-colon" aria-hidden="true"></span>
+          <span class="numerical-digits">
+            <span v-for="slot in group" :key="slot.index" class="numerical-digit-slot">
+              <span
+                v-for="layer in slot.layers"
+                :key="layer.id"
+                class="numerical-digit"
+                :class="{
+                  'numerical-digit-enter': layer.phase === 'enter',
+                  'numerical-digit-leave': layer.phase === 'leave',
+                }"
+                :aria-hidden="layer.phase === 'leave'"
+                @animationend="onDigitAnimationEnd(slot.index, layer.id, $event)"
+              >{{ layer.char }}</span>
+            </span>
+          </span>
+        </template>
+      </time>
       <div class="numerical-side">
         <div class="numerical-date-row">
           <span class="numerical-day" :style="{ color: isNightMode ? 'var(--color-0)' : '#fff' }">{{ dayOfMonth }} </span><span class="numerical-weekday">周{{ weekday }}</span>
@@ -42,13 +77,74 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useFloatConfig } from '@/composables/useFloatConfig'
 import { extractStockItems, fetchGlanceMenu, type StockItem } from '@/composables/useGlanceStocks'
 
-defineProps<{
+const props = defineProps<{
   digits: string[]
   displayOpacity: (opacity: number) => number
   colonOpacity: number
   brightness: number
   isNightMode: boolean
 }>()
+
+type DigitPhase = 'settled' | 'enter' | 'leave'
+
+type DigitLayer = {
+  id: number
+  char: string
+  phase: DigitPhase
+}
+
+type DigitSlot = {
+  index: number
+  layers: DigitLayer[]
+}
+
+const digitSlots = ref<DigitSlot[]>([0, 1, 2, 3].map((index) => ({ index, layers: [] })))
+let digitLayerId = 0
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// 变化的那一位单独过渡：旧数字加速上移变浅，新数字同时从偏低处出现并减速升到原位。
+const syncDigitSlots = (digits: string[]) => {
+  for (let index = 0; index < 4; index += 1) {
+    const char = digits[index]
+    if (!char) continue
+    const slot = digitSlots.value[index]
+    const current = slot.layers.find((layer) => layer.phase !== 'leave')
+    if (!current) {
+      slot.layers.push({ id: digitLayerId++, char, phase: 'settled' })
+      continue
+    }
+    if (current.char === char) continue
+    if (prefersReducedMotion()) {
+      slot.layers = [{ id: digitLayerId++, char, phase: 'settled' }]
+      continue
+    }
+    current.phase = 'leave'
+    slot.layers.push({ id: digitLayerId++, char, phase: 'enter' })
+  }
+}
+
+watch(
+  () => props.digits,
+  (digits) => syncDigitSlots(digits),
+  { immediate: true },
+)
+
+const digitGroups = computed(() => [digitSlots.value.slice(0, 2), digitSlots.value.slice(2)])
+
+const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) => {
+  if (event.target !== event.currentTarget) return
+  const slot = digitSlots.value[index]
+  const layer = slot?.layers.find((item) => item.id === id)
+  if (!layer) return
+  if (event.animationName.includes('leave') && layer.phase === 'leave') {
+    slot.layers = slot.layers.filter((item) => item.id !== id)
+    return
+  }
+  if (event.animationName.includes('enter') && layer.phase === 'enter') {
+    layer.phase = 'settled'
+  }
+}
 
 const { numericalStocks } = useFloatConfig()
 
@@ -140,19 +236,35 @@ watch(
 onMounted(() => {
   dateTimer = window.setInterval(updateDate, 60_000)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('resize', onResize)
 })
 
 onBeforeUnmount(() => {
   if (dateTimer !== undefined) clearInterval(dateTimer)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('resize', onResize)
   stopStockTimer()
 })
 
 const dayOfMonth = computed(() => now.value.getDate())
 const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六'][now.value.getDay()])
+
+const viewportWidth = ref(window.innerWidth)
+// 字号是 50vw。拐角圆度约为字号的 1%，随屏幕缩放。
+const cornerRadius = computed(() => Math.max(0.6, viewportWidth.value * 0.005))
+
+const onResize = () => {
+  viewportWidth.value = window.innerWidth
+}
 </script>
 
 <style scoped>
+@property --digit-wash {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 .numerical-wrapper {
   display: flex;
   align-items: center;
@@ -172,22 +284,111 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   margin-bottom: 8vh;
 }
 
+.numerical-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
 .numerical-time {
+  display: flex;
+  align-items: stretch;
   font-family: 'AFCamberwell-One-Regular', serif;
   font-size: 50vw;
   line-height: 1;
-  letter-spacing: -0.8vw;
-  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
+  flex-shrink: 0;
+}
+
+.numerical-digits {
+  display: flex;
+  align-items: flex-start;
+}
+
+.numerical-digit-slot {
+  position: relative;
+}
+
+.numerical-digit-slot + .numerical-digit-slot {
+  margin-left: -0.8vw;
+}
+
+.numerical-digit {
+  --digit-wash: 0;
+  display: block;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-0) calc((1 - var(--digit-wash)) * 100%), white),
+    color-mix(in srgb, var(--color-1) calc((1 - var(--digit-wash)) * 100%), white)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
-  flex-shrink: 0;
+  filter: url(#numerical-round);
+}
+
+.numerical-digit-leave {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  animation: numerical-digit-leave 0.2s ease-in forwards;
+}
+
+.numerical-digit-enter {
+  position: relative;
+  z-index: 1;
+  animation: numerical-digit-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes numerical-digit-leave {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+    --digit-wash: 0;
+  }
+  to {
+    transform: translateY(-1.6vw);
+    opacity: 0;
+    --digit-wash: 1;
+  }
+}
+
+@keyframes numerical-digit-enter {
+  from {
+    transform: translateY(1vw);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .numerical-digit-enter,
+  .numerical-digit-leave {
+    animation: none;
+  }
 }
 
 .numerical-colon {
-  padding: 0 0.3vw;
-  vertical-align: 4vw;
+  width: 7.5vw;
+  margin: 0 1.2vw;
+  align-self: stretch;
+  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
+  -webkit-mask-image:
+    radial-gradient(circle closest-side, #000 99%, transparent 100%),
+    radial-gradient(circle closest-side, #000 99%, transparent 100%);
+  -webkit-mask-size: 7.5vw 7.5vw, 7.5vw 7.5vw;
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-position: center 27%, center 73%;
+  mask-image:
+    radial-gradient(circle closest-side, #000 99%, transparent 100%),
+    radial-gradient(circle closest-side, #000 99%, transparent 100%);
+  mask-size: 7.5vw 7.5vw, 7.5vw 7.5vw;
+  mask-repeat: no-repeat, no-repeat;
+  mask-position: center 27%, center 73%;
 }
 
 .numerical-side {
@@ -195,7 +396,7 @@ const weekday = computed(() => ['日', '一', '二', '三', '四', '五', '六']
   flex-direction: column;
   align-items: flex-start;
   margin-left: 4vw;
-  padding-top: 9vw;
+  padding-top: 4.45vw;
   width: 26vw;
   max-width: 26vw;
   box-sizing: border-box;

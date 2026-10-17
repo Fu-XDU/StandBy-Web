@@ -1,18 +1,24 @@
 <template>
   <time v-if="digits.length > 0" class="float-font">
-    <span class="float-digit float-digit-0" :style="{ opacity: displayOpacity(brightness) }">
-      {{ digits[0] }}
-    </span>
-    <span class="float-digit float-digit-1" :style="{ opacity: displayOpacity(brightness) }">
-      {{ digits[1] }}
-    </span>
-    <span class="float-colon" :style="{ opacity: displayOpacity(colonOpacity) }">:</span>
-    <span class="float-digit float-digit-2" :style="{ opacity: displayOpacity(brightness) }">
-      {{ digits[2] }}
-    </span>
-    <span class="float-digit float-digit-3" :style="{ opacity: displayOpacity(brightness) }">
-      {{ digits[3] }}
-    </span>
+    <template v-for="slot in digitSlots" :key="slot.index">
+      <span v-if="slot.index === 2" class="float-colon" :style="{ opacity: displayOpacity(colonOpacity) }">:</span>
+      <span class="float-digit-slot" :class="`float-slot-${slot.index}`" :style="{ opacity: displayOpacity(brightness) }">
+        <span
+          v-for="layer in slot.layers"
+          :key="layer.id"
+          class="float-digit"
+          :class="[
+            `float-digit-${slot.index}`,
+            {
+              'float-digit-enter': layer.phase === 'enter',
+              'float-digit-leave': layer.phase === 'leave',
+            },
+          ]"
+          :aria-hidden="layer.phase === 'leave'"
+          @animationend="onDigitAnimationEnd(slot.index, layer.id, $event)"
+        >{{ layer.char }}</span>
+      </span>
+    </template>
   </time>
 </template>
 
@@ -38,16 +44,83 @@ export const floatNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 </script>
 
 <script setup lang="ts">
-defineProps<{
+import { ref, watch } from 'vue'
+
+const props = defineProps<{
   digits: string[]
   displayOpacity: (opacity: number) => number
   colonOpacity: number
   brightness: number
   isNightMode: boolean
 }>()
+
+type DigitPhase = 'settled' | 'enter' | 'leave'
+
+type DigitLayer = {
+  id: number
+  char: string
+  phase: DigitPhase
+}
+
+type DigitSlot = {
+  index: number
+  layers: DigitLayer[]
+}
+
+const digitSlots = ref<DigitSlot[]>([0, 1, 2, 3].map((index) => ({ index, layers: [] })))
+let digitLayerId = 0
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// 和数字时钟同一套过渡：旧数字加速上移变浅，新数字从偏低处减速升到原位。
+const syncDigitSlots = (digits: string[]) => {
+  for (let index = 0; index < 4; index += 1) {
+    const char = digits[index]
+    if (!char) continue
+    const slot = digitSlots.value[index]
+    const current = slot.layers.find((layer) => layer.phase !== 'leave')
+    if (!current) {
+      slot.layers.push({ id: digitLayerId++, char, phase: 'settled' })
+      continue
+    }
+    if (current.char === char) continue
+    if (prefersReducedMotion()) {
+      slot.layers = [{ id: digitLayerId++, char, phase: 'settled' }]
+      continue
+    }
+    current.phase = 'leave'
+    slot.layers.push({ id: digitLayerId++, char, phase: 'enter' })
+  }
+}
+
+watch(
+  () => props.digits,
+  (digits) => syncDigitSlots(digits),
+  { immediate: true },
+)
+
+const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) => {
+  if (event.target !== event.currentTarget) return
+  const slot = digitSlots.value[index]
+  const layer = slot?.layers.find((item) => item.id === id)
+  if (!layer) return
+  if (event.animationName.includes('leave') && layer.phase === 'leave') {
+    slot.layers = slot.layers.filter((item) => item.id !== id)
+    return
+  }
+  if (event.animationName.includes('enter') && layer.phase === 'enter') {
+    layer.phase = 'settled'
+  }
+}
 </script>
 
 <style scoped>
+@property --digit-wash {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 .float-font {
   font-family: 'SF-Pro-Rounded-Black', serif;
   font-size: 37vw;
@@ -59,17 +132,37 @@ defineProps<{
   padding-right: 5vw;
 }
 
-.float-digit-0 {
-  color: var(--color-0);
-  transform: rotate(-5deg) scaleY(1.2);
+.float-digit-slot {
+  position: relative;
+}
+
+.float-slot-0,
+.float-slot-2 {
   z-index: 0;
 }
 
-.float-digit-1 {
-  color: var(--color-1);
-  font-size: 41vw;
-  transform: rotate(1deg) scaleY(1.1);
+.float-slot-1,
+.float-slot-3 {
   z-index: 1;
+}
+
+.float-digit {
+  --digit-wash: 0;
+  display: block;
+  color: color-mix(in srgb, var(--digit-color) calc((1 - var(--digit-wash)) * 100%), white);
+}
+
+.float-digit-0 {
+  --digit-color: var(--color-0);
+  rotate: -5deg;
+  scale: 1 1.2;
+}
+
+.float-digit-1 {
+  --digit-color: var(--color-1);
+  font-size: 41vw;
+  rotate: 1deg;
+  scale: 1 1.1;
   mix-blend-mode: screen;
 }
 
@@ -80,15 +173,57 @@ defineProps<{
 }
 
 .float-digit-2 {
-  color: var(--color-2);
-  transform: rotate(5deg) scaleY(1.15);
-  z-index: 0;
+  --digit-color: var(--color-2);
+  rotate: 5deg;
+  scale: 1 1.15;
 }
 
 .float-digit-3 {
-  color: var(--color-3);
-  transform: rotate(-2deg) scaleY(1.15);
-  z-index: 1;
+  --digit-color: var(--color-3);
+  rotate: -2deg;
+  scale: 1 1.15;
   mix-blend-mode: screen;
+}
+
+.float-digit-leave {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: float-digit-leave 0.2s ease-in forwards;
+}
+
+.float-digit-enter {
+  animation: float-digit-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes float-digit-leave {
+  from {
+    translate: 0 0;
+    opacity: 1;
+    --digit-wash: 0;
+  }
+  to {
+    translate: 0 -1.6vw;
+    opacity: 0;
+    --digit-wash: 1;
+  }
+}
+
+@keyframes float-digit-enter {
+  from {
+    translate: 0 1vw;
+    opacity: 0.2;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-digit-enter,
+  .float-digit-leave {
+    animation: none;
+  }
 }
 </style>
