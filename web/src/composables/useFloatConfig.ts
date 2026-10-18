@@ -5,9 +5,11 @@ import { wasOpenedViaDeviceIdLink, getOrCreateDeviceId, registerDevice } from '@
 import {
   clampOpacity,
   equalFloatConfig,
+  equalWorldSelection,
   FLOAT_PAGE_ID,
   type FloatConfigPatch,
   type FloatConfigPayload,
+  normalizeWorldSelection,
   readFloatUpdatedAt,
   writeFloatUpdatedAt,
 } from '@/config/floatConfig'
@@ -23,6 +25,7 @@ const colorIndexMap = ref<Record<string, number>>({ float: 0, numerical: 0, anal
 const brightness = ref(1)
 const remoteControlEnabled = ref(false)
 const numericalStocks = ref<string[]>([])
+const worldSelected = ref<FloatConfigPayload['worldSelected']>(null)
 
 const selectedColorIndex = computed({
   get: () => colorIndexMap.value[clockStyle.value] ?? 0,
@@ -57,6 +60,7 @@ const toSnapshot = (): FloatConfigPayload => ({
   colorIndexMap: { ...colorIndexMap.value },
   brightness: brightness.value,
   numericalStocks: [...numericalStocks.value],
+  worldSelected: worldSelected.value ? { ...worldSelected.value } : null,
 })
 
 function equalIntMap(a: Record<string, number>, b: Record<string, number>): boolean {
@@ -99,6 +103,9 @@ const applyFieldByField = (config: FloatConfigPayload) => {
     (config.numericalStocks || []).length !== numericalStocks.value.length ||
     (config.numericalStocks || []).some((v, i) => numericalStocks.value[i] !== v)
   if (stocksChanged) patch.numericalStocks = config.numericalStocks || []
+  if ('worldSelected' in config && !equalWorldSelection(worldSelected.value, config.worldSelected)) {
+    patch.worldSelected = normalizeWorldSelection(config.worldSelected)
+  }
   if (Object.keys(patch).length === 0) return
   applyPatchToRefs(patch)
 }
@@ -120,6 +127,7 @@ const applyPatchToRefs = (patch: FloatConfigPatch) => {
   if (patch.colorIndexMap !== undefined) colorIndexMap.value = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) brightness.value = clampOpacity(patch.brightness)
   if (patch.numericalStocks !== undefined) numericalStocks.value = [...patch.numericalStocks]
+  if (patch.worldSelected !== undefined) worldSelected.value = normalizeWorldSelection(patch.worldSelected)
 }
 
 const applySnapshot = (config: FloatConfigPayload, updatedAt: number) => {
@@ -176,6 +184,9 @@ function initFloatConfig() {
   useLocalStorageSync('brightness', brightness)
   useLocalStorageSync('remoteControlEnabled', remoteControlEnabled)
   useLocalStorageSync('numericalStocks', numericalStocks, { deep: true })
+  useLocalStorageSync('worldSelected', worldSelected, {
+    parser: (val: unknown) => normalizeWorldSelection(val),
+  })
 
   migrateOldSelectedColorIndex()
   migrateOldClockStyle()
@@ -202,6 +213,7 @@ function initFloatConfig() {
       colorIndexMap,
       brightness,
       numericalStocks,
+      worldSelected,
     ],
     () => {
       if (!hydrated || applyingRemote || !remoteControlEnabled.value) return
@@ -260,5 +272,6 @@ export function useFloatConfig() {
     brightness,
     remoteControlEnabled,
     numericalStocks,
+    worldSelected,
   }
 }
