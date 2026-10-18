@@ -26,6 +26,16 @@
           <stop offset="0.78" stop-color="#3a3a3a" />
           <stop offset="1" stop-color="#1c1c1c" />
         </linearGradient>
+        <!-- iPad 的 WebKit 用渐变描边时，会在路径最上沿多画一条水平线。渐变改铺在矩形上，线条只用实色遮罩。 -->
+        <mask id="terminator-mask" maskUnits="userSpaceOnUse" x="0" y="0" :width="width" :height="height">
+          <path
+            class="terminator"
+            :d="terminatorPath"
+            fill="none"
+            stroke="#fff"
+            :stroke-width="terminatorWidth"
+          />
+        </mask>
         <clipPath
           v-for="dot in cutDots"
           :id="`dot-cut-${dot.row}-${dot.col}`"
@@ -65,7 +75,15 @@
         @pointerdown.stop
         @click.stop="onMarkerClick(dot.row, dot.col)"
       />
-      <path class="terminator" :d="terminatorPath" stroke="url(#terminator-shade)" :stroke-width="terminatorWidth" />
+      <rect
+        class="terminator-shade"
+        x="0"
+        y="0"
+        :width="width"
+        :height="height"
+        fill="url(#terminator-shade)"
+        mask="url(#terminator-mask)"
+      />
       <circle
         v-for="(city, index) in cities"
         :key="`city-${index}`"
@@ -328,7 +346,8 @@ const frame = computed(() => {
   const w = width.value
   const h = height.value
   const aspect = LON_SPAN / LAT_SPAN
-  const maxW = w * 0.94
+  // 宽度跟屏幕对齐。高度超出时才按高度把地图缩小。
+  const maxW = w
   const maxH = h * 0.86
   let mapW = maxW
   let mapH = mapW / aspect
@@ -706,6 +725,10 @@ onBeforeUnmount(() => {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.terminator-shade {
   pointer-events: none;
 }
 
