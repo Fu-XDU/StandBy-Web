@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -195,6 +196,65 @@ func TestStore_persistAndReload(t *testing.T) {
 	}
 	if state.UpdatedAt != 100 || state.Config.ColorIndexMap["float"] != 2 {
 		t.Fatalf("unexpected reloaded state: %+v", state)
+	}
+}
+
+func TestWorldSelected_syncAndPatch(t *testing.T) {
+	s := NewStoreWithPath("")
+	deviceID := "abcd1234abcd1234abcd1234abcd12"
+	client := sampleFloatConfig()
+	client.WorldSelected = &WorldSelection{Row: 8, Col: 12}
+
+	s.Register(deviceID)
+	if _, err := s.SyncPage(deviceID, pageFloat, 100, client); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.GetPage(deviceID, pageFloat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalWorldSelection(state.Config.WorldSelected, client.WorldSelected) {
+		t.Fatalf("expected stored selection: %+v", state.Config.WorldSelected)
+	}
+
+	var setPatch FloatPageConfigPatch
+	if err := json.Unmarshal([]byte(`{"worldSelected":{"row":3,"col":4}}`), &setPatch); err != nil {
+		t.Fatal(err)
+	}
+	state, err = s.PatchPageRemote(deviceID, pageFloat, &setPatch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Config.WorldSelected == nil || state.Config.WorldSelected.Row != 3 || state.Config.WorldSelected.Col != 4 {
+		t.Fatalf("expected patched selection: %+v", state.Config.WorldSelected)
+	}
+	if state.Config.ClockStyle != client.ClockStyle {
+		t.Fatal("patch should not change other fields")
+	}
+
+	var clearPatch FloatPageConfigPatch
+	if err := json.Unmarshal([]byte(`{"worldSelected":null}`), &clearPatch); err != nil {
+		t.Fatal(err)
+	}
+	state, err = s.PatchPageRemote(deviceID, pageFloat, &clearPatch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Config.WorldSelected != nil {
+		t.Fatal("null patch should clear the selection")
+	}
+
+	var absent FloatPageConfigPatch
+	if err := json.Unmarshal([]byte(`{"brightness":0.5}`), &absent); err != nil {
+		t.Fatal(err)
+	}
+	if absent.WorldSelected.Set {
+		t.Fatal("missing worldSelected should not count as a patch")
+	}
+
+	bad := &WorldSelection{Row: -1, Col: 0}
+	if validateWorldSelection(bad) {
+		t.Fatal("negative row should be invalid")
 	}
 }
 

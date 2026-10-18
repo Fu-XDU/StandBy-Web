@@ -180,6 +180,7 @@ export const worldNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLocalStorageSync } from '@/composables/useLocalStorageSync'
+import { useFloatConfig } from '@/composables/useFloatConfig'
 
 // 从上到下是北到南，从左到右是西到东。0 没点，1 陆地点，2 橙色城市点。
 // 行数和每行字符数就是网格。点在地图宽高里均匀排开，每行字符数要一样。
@@ -278,7 +279,7 @@ const saveCity = () => {
   cityName.value = cityDraft.value.trim().slice(0, 20)
   cityEditorOpen.value = false
 }
-const selected = ref<{ row: number; col: number } | null>(null)
+const { worldSelected } = useFloatConfig()
 const dotGrid = ref<string[]>(WORLD_DOTS.map((row) => row))
 const activeRows = computed(() => (WORLD_DOT_EDIT ? dotGrid.value : WORLD_DOTS))
 const width = ref(0)
@@ -442,7 +443,7 @@ const cities = computed(() => {
 })
 
 const selectedPoint = computed(() => {
-  const current = selected.value
+  const current = worldSelected.value
   if (!current) return null
   const row = activeRows.value[current.row]
   const mark = row?.[current.col]
@@ -456,11 +457,11 @@ const onMarkerClick = (row: number, col: number) => {
     onDotClick(row, col)
     return
   }
-  if (selected.value?.row === row && selected.value?.col === col) {
-    selected.value = null
+  if (worldSelected.value?.row === row && worldSelected.value?.col === col) {
+    worldSelected.value = null
     return
   }
-  selected.value = { row, col }
+  worldSelected.value = { row, col }
 }
 
 const logWorldDots = () => {

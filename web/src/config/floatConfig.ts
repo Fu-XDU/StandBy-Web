@@ -1,5 +1,31 @@
 export const FLOAT_PAGE_ID = 'float' as const
 
+/** 世界时钟选中点的行列上限，留出点阵以后变大的余地。 */
+const WORLD_SELECTION_ROW_MAX = 80
+const WORLD_SELECTION_COL_MAX = 160
+
+export interface WorldSelection {
+  row: number
+  col: number
+}
+
+export function normalizeWorldSelection(value: unknown): WorldSelection | null {
+  if (value == null) return null
+  if (typeof value !== 'object') return null
+  const row = (value as WorldSelection).row
+  const col = (value as WorldSelection).col
+  if (!Number.isInteger(row) || !Number.isInteger(col)) return null
+  if (row < 0 || row >= WORLD_SELECTION_ROW_MAX || col < 0 || col >= WORLD_SELECTION_COL_MAX) return null
+  return { row, col }
+}
+
+export function equalWorldSelection(a: WorldSelection | null | undefined, b: WorldSelection | null | undefined): boolean {
+  const left = a ?? null
+  const right = b ?? null
+  if (left == null || right == null) return left == null && right == null
+  return left.row === right.row && left.col === right.col
+}
+
 /** 冒号相对统一亮度的系数 */
 export const COLON_BRIGHTNESS_FACTOR = 0.98
 
@@ -14,6 +40,7 @@ export interface FloatConfigPayload {
   colorIndexMap: Record<string, number>
   brightness: number
   numericalStocks: string[]
+  worldSelected: WorldSelection | null
 }
 
 /** 远程 PATCH 时可只传需要修改的字段 */
@@ -65,7 +92,8 @@ export function equalFloatConfig(a: FloatConfigPayload, b: FloatConfigPayload): 
     a.clockStyle === b.clockStyle &&
     equalIntMap(a.colorIndexMap, b.colorIndexMap) &&
     floatEqual(a.brightness, b.brightness) &&
-    equalStringSlice(a.numericalStocks || [], b.numericalStocks || [])
+    equalStringSlice(a.numericalStocks || [], b.numericalStocks || []) &&
+    equalWorldSelection(a.worldSelected, b.worldSelected)
   )
 }
 
@@ -79,6 +107,7 @@ export function applyFloatConfigPatch(
     invisibleDay: [...current.invisibleDay],
     colorIndexMap: { ...current.colorIndexMap },
     numericalStocks: [...(current.numericalStocks || [])],
+    worldSelected: current.worldSelected ? { ...current.worldSelected } : null,
   }
   if (patch.autoNightMode !== undefined) next.autoNightMode = patch.autoNightMode
   if (patch.nightModeRange !== undefined) next.nightModeRange = [...patch.nightModeRange]
@@ -90,6 +119,7 @@ export function applyFloatConfigPatch(
   if (patch.colorIndexMap !== undefined) next.colorIndexMap = { ...patch.colorIndexMap }
   if (patch.brightness !== undefined) next.brightness = clampOpacity(patch.brightness)
   if (patch.numericalStocks !== undefined) next.numericalStocks = [...patch.numericalStocks]
+  if (patch.worldSelected !== undefined) next.worldSelected = normalizeWorldSelection(patch.worldSelected)
   return next
 }
 

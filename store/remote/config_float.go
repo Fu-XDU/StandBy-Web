@@ -1,41 +1,73 @@
 package remote
 
 import (
+	"bytes"
+	"encoding/json"
 	"math"
 	"time"
 )
 
 const (
-	colorIndexMin = 0
-	colorIndexMax = 99
+	colorIndexMin        = 0
+	colorIndexMax        = 99
+	worldSelectionRowMax = 80
+	worldSelectionColMax = 160
 )
+
+// WorldSelection 世界时钟上被选中的点。
+type WorldSelection struct {
+	Row int `json:"row"`
+	Col int `json:"col"`
+}
 
 // FloatPageConfig 与前端钟表配置字段一一对应。
 type FloatPageConfig struct {
-	AutoNightMode      bool           `json:"autoNightMode"`
-	NightModeRange     []string       `json:"nightModeRange"`
-	AutoInvisible      bool           `json:"autoInvisible"`
-	InvisibleRange     []string       `json:"invisibleRange"`
-	InvisibleDayEnable bool           `json:"invisibleDayEnable"`
-	InvisibleDay       []bool         `json:"invisibleDay"`
-	ClockStyle         string         `json:"clockStyle"`
-	ColorIndexMap      map[string]int `json:"colorIndexMap"`
-	Brightness         float64        `json:"brightness"`
-	NumericalStocks    []string       `json:"numericalStocks"`
+	AutoNightMode      bool            `json:"autoNightMode"`
+	NightModeRange     []string        `json:"nightModeRange"`
+	AutoInvisible      bool            `json:"autoInvisible"`
+	InvisibleRange     []string        `json:"invisibleRange"`
+	InvisibleDayEnable bool            `json:"invisibleDayEnable"`
+	InvisibleDay       []bool          `json:"invisibleDay"`
+	ClockStyle         string          `json:"clockStyle"`
+	ColorIndexMap      map[string]int  `json:"colorIndexMap"`
+	Brightness         float64         `json:"brightness"`
+	NumericalStocks    []string        `json:"numericalStocks"`
+	WorldSelected      *WorldSelection `json:"worldSelected"`
+}
+
+// worldSelectionPatch 区分「请求没带这个字段」和「明确取消选中」。
+type worldSelectionPatch struct {
+	Set   bool
+	Value *WorldSelection
+}
+
+func (p *worldSelectionPatch) UnmarshalJSON(data []byte) error {
+	p.Set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		p.Value = nil
+		return nil
+	}
+	var value WorldSelection
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	p.Value = &value
+	return nil
 }
 
 // FloatPageConfigPatch 仅包含需要远程修改的字段（指针非 nil 表示要更新）。
 type FloatPageConfigPatch struct {
-	AutoNightMode      *bool            `json:"autoNightMode"`
-	NightModeRange     *[]string        `json:"nightModeRange"`
-	AutoInvisible      *bool            `json:"autoInvisible"`
-	InvisibleRange     *[]string        `json:"invisibleRange"`
-	InvisibleDayEnable *bool            `json:"invisibleDayEnable"`
-	InvisibleDay       *[]bool          `json:"invisibleDay"`
-	ClockStyle         *string          `json:"clockStyle"`
-	ColorIndexMap      *map[string]int  `json:"colorIndexMap"`
-	Brightness         *float64         `json:"brightness"`
-	NumericalStocks    *[]string        `json:"numericalStocks"`
+	AutoNightMode      *bool               `json:"autoNightMode"`
+	NightModeRange     *[]string           `json:"nightModeRange"`
+	AutoInvisible      *bool               `json:"autoInvisible"`
+	InvisibleRange     *[]string           `json:"invisibleRange"`
+	InvisibleDayEnable *bool               `json:"invisibleDayEnable"`
+	InvisibleDay       *[]bool             `json:"invisibleDay"`
+	ClockStyle         *string             `json:"clockStyle"`
+	ColorIndexMap      *map[string]int     `json:"colorIndexMap"`
+	Brightness         *float64            `json:"brightness"`
+	NumericalStocks    *[]string           `json:"numericalStocks"`
+	WorldSelected      worldSelectionPatch `json:"worldSelected"`
 }
 
 func (p *FloatPageConfigPatch) IsEmpty() bool {
@@ -51,7 +83,8 @@ func (p *FloatPageConfigPatch) IsEmpty() bool {
 		p.ClockStyle == nil &&
 		p.ColorIndexMap == nil &&
 		p.Brightness == nil &&
-		p.NumericalStocks == nil
+		p.NumericalStocks == nil &&
+		!p.WorldSelected.Set
 }
 
 func defaultFloatConfig() *FloatPageConfig {
@@ -66,6 +99,7 @@ func defaultFloatConfig() *FloatPageConfig {
 		ColorIndexMap:      map[string]int{"float": 0, "numerical": 0, "analog": 0, "world": 0},
 		Brightness:         1,
 		NumericalStocks:    []string{},
+		WorldSelected:      nil,
 	}
 }
 
@@ -101,6 +135,9 @@ func applyPatch(base *FloatPageConfig, patch *FloatPageConfigPatch) *FloatPageCo
 	if patch.NumericalStocks != nil {
 		out.NumericalStocks = append([]string(nil), (*patch.NumericalStocks)...)
 	}
+	if patch.WorldSelected.Set {
+		out.WorldSelected = cloneWorldSelection(patch.WorldSelected.Value)
+	}
 	return out
 }
 
@@ -124,6 +161,9 @@ func validatePatch(patch *FloatPageConfigPatch) error {
 		return ErrInvalidConfig
 	}
 	if patch.NumericalStocks != nil && !validateNumericalStocks(*patch.NumericalStocks) {
+		return ErrInvalidConfig
+	}
+	if patch.WorldSelected.Set && !validateWorldSelection(patch.WorldSelected.Value) {
 		return ErrInvalidConfig
 	}
 	return nil
@@ -174,7 +214,8 @@ func EqualFloatConfig(a, b *FloatPageConfig) bool {
 		a.ClockStyle == b.ClockStyle &&
 		equalIntMap(a.ColorIndexMap, b.ColorIndexMap) &&
 		floatEqual(a.Brightness, b.Brightness) &&
-		equalStringSlice(a.NumericalStocks, b.NumericalStocks)
+		equalStringSlice(a.NumericalStocks, b.NumericalStocks) &&
+		equalWorldSelection(a.WorldSelected, b.WorldSelected)
 }
 
 func brightnessInRange(v float64) bool {
@@ -230,6 +271,7 @@ func cloneFloatConfig(c *FloatPageConfig) *FloatPageConfig {
 	cp.InvisibleDay = append([]bool(nil), c.InvisibleDay...)
 	cp.ColorIndexMap = cloneIntMap(c.ColorIndexMap)
 	cp.NumericalStocks = append([]string(nil), c.NumericalStocks...)
+	cp.WorldSelected = cloneWorldSelection(c.WorldSelected)
 	return &cp
 }
 
@@ -243,11 +285,34 @@ func validateFloatConfig(c *FloatPageConfig) bool {
 		validateClockStyle(c.ClockStyle) &&
 		validateColorIndexMap(c.ColorIndexMap) &&
 		brightnessInRange(c.Brightness) &&
-		validateNumericalStocks(c.NumericalStocks)
+		validateNumericalStocks(c.NumericalStocks) &&
+		validateWorldSelection(c.WorldSelected)
 }
 
 func validateClockStyle(s string) bool {
 	return len(s) > 0 && len(s) <= 32
+}
+
+func validateWorldSelection(s *WorldSelection) bool {
+	if s == nil {
+		return true
+	}
+	return s.Row >= 0 && s.Row < worldSelectionRowMax && s.Col >= 0 && s.Col < worldSelectionColMax
+}
+
+func cloneWorldSelection(s *WorldSelection) *WorldSelection {
+	if s == nil {
+		return nil
+	}
+	cp := *s
+	return &cp
+}
+
+func equalWorldSelection(a, b *WorldSelection) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Row == b.Row && a.Col == b.Col
 }
 
 func validateNumericalStocks(stocks []string) bool {
