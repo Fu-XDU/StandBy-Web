@@ -9,19 +9,11 @@
         height="200%"
         color-interpolation-filters="sRGB"
       >
-        <feGaussianBlur
-          in="SourceAlpha"
-          :stdDeviation="cornerRadius"
-          result="blur"
-          x="-50%"
-          y="-50%"
-          width="200%"
-          height="200%"
-        />
-        <feComponentTransfer in="blur" result="mask" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceAlpha" :stdDeviation="cornerRadius" result="blur" />
+        <feComponentTransfer in="blur" result="mask">
           <feFuncA type="linear" slope="28" intercept="-14" />
         </feComponentTransfer>
-        <feComposite in="SourceGraphic" in2="mask" operator="in" x="-50%" y="-50%" width="200%" height="200%" />
+        <feComposite in="SourceGraphic" in2="mask" operator="in" />
       </filter>
     </svg>
     <div class="numerical-inner">
@@ -331,7 +323,11 @@ const onResize = () => {
 
 .numerical-digit {
   --digit-wash: 0;
-  display: block;
+  /* iPhone 的 WebKit 不绘制 display:block 的 background-clip:text，字会整段消失，冒号不受影响。 */
+  display: inline-block;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--color-0) calc((1 - var(--digit-wash)) * 100%), white),
