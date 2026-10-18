@@ -13,10 +13,11 @@ Standby Web
 <a href="/CONTRIBUTING.md" title="Go to contributions doc"><img src="https://img.shields.io/badge/contributions-welcome-blue" alt="contributions - welcome"></a>
 <a href="#license"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
 </p>
-
 ## Screenshot
 
-![Float](web/Screenshot/Float.png)
+|![Float](web/Screenshot/Float.png)|![Numerical](web/Screenshot/Numerical.png)|
+| ---- | ---- |
+|![Analog](web/Screenshot/Analog.png)|![World](web/Screenshot/World.png)|
 
 ## See Also
 
