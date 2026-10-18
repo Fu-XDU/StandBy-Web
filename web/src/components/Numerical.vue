@@ -74,6 +74,7 @@ export const numericalNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { clockNow } from '@/composables/useTime'
 import { useFloatConfig } from '@/composables/useFloatConfig'
 import { extractStockItems, fetchGlanceMenu, type StockItem } from '@/composables/useGlanceStocks'
 
@@ -148,11 +149,11 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 
 const { numericalStocks } = useFloatConfig()
 
-const now = ref(new Date())
+const now = ref(clockNow())
 let dateTimer: number | undefined
 
 const updateDate = () => {
-  now.value = new Date()
+  now.value = clockNow()
 }
 
 // 股票数据管理

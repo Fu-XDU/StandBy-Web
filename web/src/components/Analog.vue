@@ -109,6 +109,7 @@ export const analogNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { clockNow } from '@/composables/useTime'
 
 defineProps<{
   digits: string[]
@@ -156,7 +157,7 @@ const dateEl = ref<SVGTextElement | null>(null)
 const dateDy = ref(0)
 const width = ref(0)
 const height = ref(0)
-const now = ref(new Date())
+const now = ref(clockNow())
 
 let resizeObserver: ResizeObserver | undefined
 let frame = 0
@@ -361,7 +362,7 @@ watch([width, height, dayOfMonth, weekday, dateSize], () => {
 })
 
 const tick = () => {
-  now.value = new Date()
+  now.value = clockNow()
   frame = window.requestAnimationFrame(tick)
 }
 

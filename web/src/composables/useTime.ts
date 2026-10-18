@@ -1,11 +1,22 @@
 import {ref, onMounted, onUnmounted} from 'vue'
 
+/** 截图用。改回 null 就恢复实时。 */
+export const SCREENSHOT_TIME: { hour: number; minute: number } | null = null // { hour: 9, minute: 18 }
+
+export function clockNow(): Date {
+    const now = new Date()
+    if (!SCREENSHOT_TIME) return now
+    const frozen = new Date(now)
+    frozen.setHours(SCREENSHOT_TIME.hour, SCREENSHOT_TIME.minute, 0, 0)
+    return frozen
+}
+
 // 定义一个返回当前小时和分钟四个数字的组合逻辑
 export function useTime() {
     const digits = ref<string[]>([])
 
     function updateDigits() {
-        const now = new Date()
+        const now = clockNow()
         const hours = now.getHours().toString().padStart(2, '0')  // "08"
         const minutes = now.getMinutes().toString().padStart(2, '0') // "05"
         digits.value = [...hours, ...minutes]  // ['0', '8', '0', '5']
@@ -16,7 +27,7 @@ export function useTime() {
 
     const startAlignedTimer = () => {
         updateDigits()
-        const now = new Date()
+        const now = clockNow()
         const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
 
         setTimeout(() => {

@@ -199,6 +199,7 @@ export const worldNightModeColors = ['rgb(148,4,7)', 'rgb(111,26,23)']
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLocalStorageSync } from '@/composables/useLocalStorageSync'
 import { useFloatConfig } from '@/composables/useFloatConfig'
+import { clockNow } from '@/composables/useTime'
 
 // 从上到下是北到南，从左到右是西到东。0 没点，1 陆地点，2 橙色城市点。
 // 行数和每行字符数就是网格。点在地图宽高里均匀排开，每行字符数要一样。
@@ -302,7 +303,7 @@ const dotGrid = ref<string[]>(WORLD_DOTS.map((row) => row))
 const activeRows = computed(() => (WORLD_DOT_EDIT ? dotGrid.value : WORLD_DOTS))
 const width = ref(0)
 const height = ref(0)
-const now = ref(new Date())
+const now = ref(clockNow())
 
 let resizeObserver: ResizeObserver | undefined
 
@@ -655,11 +656,11 @@ const syncSize = () => {
 }
 
 watch(() => props.digits, () => {
-  now.value = new Date()
+  now.value = clockNow()
 })
 
 onMounted(() => {
-  now.value = new Date()
+  now.value = clockNow()
   syncSize()
   if (root.value) {
     resizeObserver = new ResizeObserver(syncSize)
