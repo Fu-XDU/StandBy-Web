@@ -315,29 +315,39 @@ const onResize = () => {
 
 .numerical-digit-frame {
   display: block;
-  filter: url(#numerical-round);
-  /* 样式轨道的 transform 会让 iPad 的 WebKit 把滤镜从字形中间切开。单独建一层合成层避开。 */
-  transform: translate3d(0, 0, 0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
 }
 
 .numerical-digit {
   --digit-wash: 0;
   /* iPhone 的 WebKit 不绘制 display:block 的 background-clip:text，字会整段消失，冒号不受影响。 */
   display: inline-block;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  background: linear-gradient(to bottom, var(--color-0), var(--color-1));
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-0) calc((1 - var(--digit-wash)) * 100%), white),
-    color-mix(in srgb, var(--color-1) calc((1 - var(--digit-wash)) * 100%), white)
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
+  /* iOS 13 没有 color-mix，祖先还有 transform。透明填充配背景裁切和 SVG 滤镜时，四个字会整段消失。 */
+  color: var(--color-0);
+}
+
+@supports (aspect-ratio: 1 / 1) {
+  .numerical-digit-frame {
+    filter: url(#numerical-round);
+    /* 样式轨道的 transform 会让 iPad 的 WebKit 把滤镜从字形中间切开。单独建一层合成层避开。 */
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  .numerical-digit {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    background: linear-gradient(to bottom, var(--color-0), var(--color-1));
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-0) calc((1 - var(--digit-wash)) * 100%), white),
+      color-mix(in srgb, var(--color-1) calc((1 - var(--digit-wash)) * 100%), white)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 .numerical-digit-leave {
@@ -420,10 +430,12 @@ const onResize = () => {
 /* 横屏手机高度小于字号，overflow 会把数字裁掉。矮屏时把字号收到视口里。 */
 @media (max-height: 520px) {
   .numerical-time {
+    font-size: min(50vw, 78vh);
     font-size: min(50vw, 78dvh);
   }
 
   .numerical-side {
+    padding-top: calc(min(50vw, 78vh) * 0.089);
     padding-top: calc(min(50vw, 78dvh) * 0.089);
   }
 }
