@@ -149,6 +149,8 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 .float-digit {
   --digit-wash: 0;
   display: block;
+  /* color-mix 从 Safari 16.2 才有。旧版整条声明作废后，字会继承 html.dark 的浅色，调色盘也不再生效。 */
+  color: var(--digit-color);
   color: color-mix(in srgb, var(--digit-color) calc((1 - var(--digit-wash)) * 100%), white);
   /* 样式轨道的 transform 会让 iPad 的 WebKit 把字形从中间切开。单独建一层合成层避开。 */
   transform: translate3d(0, 0, 0);
@@ -158,6 +160,8 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 
 .float-digit-0 {
   --digit-color: var(--color-0);
+  /* rotate / scale 独立属性从 Safari 14.1 才有。旧版合成进 transform，支持的浏览器再拆开。 */
+  transform: translate3d(0, 0, 0) rotate(-5deg) scale(1, 1.2);
   rotate: -5deg;
   scale: 1 1.2;
 }
@@ -165,6 +169,7 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 .float-digit-1 {
   --digit-color: var(--color-1);
   font-size: 41vw;
+  transform: translate3d(0, 0, 0) rotate(1deg) scale(1, 1.1);
   rotate: 1deg;
   scale: 1 1.1;
   mix-blend-mode: screen;
@@ -180,15 +185,26 @@ const onDigitAnimationEnd = (index: number, id: number, event: AnimationEvent) =
 
 .float-digit-2 {
   --digit-color: var(--color-2);
+  transform: translate3d(0, 0, 0) rotate(5deg) scale(1, 1.15);
   rotate: 5deg;
   scale: 1 1.15;
 }
 
 .float-digit-3 {
   --digit-color: var(--color-3);
+  transform: translate3d(0, 0, 0) rotate(-2deg) scale(1, 1.15);
   rotate: -2deg;
   scale: 1 1.15;
   mix-blend-mode: screen;
+}
+
+@supports (rotate: 0deg) {
+  .float-digit-0,
+  .float-digit-1,
+  .float-digit-2,
+  .float-digit-3 {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .float-digit-leave {

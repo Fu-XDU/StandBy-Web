@@ -157,6 +157,9 @@ const dateEl = ref<SVGTextElement | null>(null)
 const dateDy = ref(0)
 const width = ref(0)
 const height = ref(0)
+// aspect-ratio 从 Safari 15 才有。没有它时高度停在 auto，量出来是 0，SVG 不会挂上。
+const supportsAspectRatio = typeof CSS !== 'undefined' && CSS.supports('aspect-ratio', '1 / 1')
+const DIAL_ASPECT = 472 / 1024
 const now = ref(clockNow())
 
 let resizeObserver: ResizeObserver | undefined
@@ -342,8 +345,16 @@ const numerals = computed(() => {
 const syncSize = () => {
   const el = root.value
   if (!el) return
-  width.value = el.clientWidth
-  height.value = el.clientHeight
+  const nextWidth = el.clientWidth
+  let nextHeight = el.clientHeight
+  // 内边距比例没生效时，高度仍是 0，SVG 的 v-if 过不去。按宽度补上。
+  if (!supportsAspectRatio && nextWidth > 0 && nextHeight === 0) {
+    const fitted = `${Math.round(nextWidth * DIAL_ASPECT)}px`
+    if (el.style.height !== fitted) el.style.height = fitted
+    nextHeight = el.clientHeight || Math.round(nextWidth * DIAL_ASPECT)
+  }
+  width.value = nextWidth
+  height.value = nextHeight
 }
 
 // 手机浏览器常忽略 dominant-baseline，日期会贴着基线偏上。按字形包围盒拉回中线。
@@ -377,16 +388,18 @@ const onVisibility = () => {
 
 onMounted(() => {
   syncSize()
-  if (root.value) {
+  if (typeof ResizeObserver !== 'undefined' && root.value) {
     resizeObserver = new ResizeObserver(syncSize)
     resizeObserver.observe(root.value)
   }
+  window.addEventListener('resize', syncSize)
   frame = window.requestAnimationFrame(tick)
   document.addEventListener('visibilitychange', onVisibility)
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  window.removeEventListener('resize', syncSize)
   if (frame) cancelAnimationFrame(frame)
   document.removeEventListener('visibilitychange', onVisibility)
 })
@@ -394,10 +407,27 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .analog {
+  position: relative;
   width: 100%;
   height: auto;
   aspect-ratio: 1024 / 472;
   flex: 0 0 auto;
+}
+
+/* aspect-ratio 从 Safari 15 才有。没有它时盒子高度为 0，表盘 SVG 不会挂上。 */
+@supports not (aspect-ratio: 1 / 1) {
+  .analog {
+    height: 0;
+    padding-bottom: calc(100% * 472 / 1024);
+  }
+
+  .analog-svg {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
 }
 
 .analog-svg {
